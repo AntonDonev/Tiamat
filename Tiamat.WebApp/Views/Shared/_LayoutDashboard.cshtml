@@ -12,11 +12,15 @@
     <link rel="stylesheet" href="~/css/dashboardstyle.css" />
 </head>
 <body class="d-flex flex-column min-vh-100 text-white">
+    @{
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    }
 
     <div class="container-fluid">
         <div class="row flex-nowrap">
             <nav class="bg-dark d-flex flex-column align-items-start justify-content-between
-                  border-end border-secondary sidebar">
+                       border-end border-secondary sidebar">
                 <div class="text-center mb-3" style="width:100%;">
                     <a href="#" id="logo">
                         <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" />
@@ -27,20 +31,32 @@
                 </div>
 
                 <ul class="nav flex-column w-100" style="gap: 0.6rem;">
-                    <li class="nav-item custom-nav-item active">
-                        <a class="nav-link" href="#" id="home-link">
+
+                    <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "Dashboard" ? "active" : "")">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="Dashboard"
+                           id="home-link">
                             <i class="bi bi-speedometer2"></i>
                             <span class="sidebar-text">Dashboard</span>
                         </a>
                     </li>
-                    <li class="nav-item custom-nav-item">
-                        <a class="nav-link" href="#" id="about-link">
+
+                    <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "AccountCenter" ? "active" : "")">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="AccountCenter"
+                           id="about-link">
                             <i class="bi bi-person-circle"></i>
                             <span class="sidebar-text">Account Center</span>
                         </a>
                     </li>
-                    <li class="nav-item custom-nav-item">
-                        <a class="nav-link" href="#" id="settings-link">
+
+                    <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "Settings" ? "active" : "")">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="Settings"
+                           id="settings-link">
                             <i class="bi bi-gear"></i>
                             <span class="sidebar-text">Settings</span>
                         </a>
@@ -49,7 +65,10 @@
 
                 <ul class="nav flex-column w-100 mt-3" style="gap: 0.6rem;">
                     <li class="nav-item custom-nav-item">
-                        <a class="nav-link" href="#" id="logout-link">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="Logout"
+                           id="logout-link">
                             <i class="bi bi-box-arrow-right"></i>
                             <span class="sidebar-text">Log Out</span>
                         </a>
@@ -62,7 +81,6 @@
                 </div>
             </nav>
 
-            <!-- Main Content -->
             <div class="col px-0">
                 <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
                     <span>Accounts passed: []</span>
@@ -78,23 +96,22 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const navbarLinks = document.querySelectorAll(".nav-link");
 
             navbarLinks.forEach(link => {
-                link.addEventListener("click", function () {
-                    navbarLinks.forEach(navLink => {
-                        navLink.classList.remove("active");
-                        navLink.parentElement.classList.remove("active");
-                        navLink.style.transform = "";
-                    });
-                    this.classList.add("active");
-                    this.parentElement.classList.add("active");
+                link.addEventListener("mousedown", function () {
+                    this.style.transform = "scale(0.97)";
+                });
+                link.addEventListener("mouseup", function () {
+                    this.style.transform = "";
                 });
             });
         });
     </script>
+
     @RenderSection("Scripts", required: false)
 </body>
 </html>

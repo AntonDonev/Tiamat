@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250206071831_Tiamat")]
+    [Migration("20250206142305_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />

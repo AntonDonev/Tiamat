@@ -1,0 +1,184 @@
+﻿.account-list-container {
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    color: #f0f0f0;
+    font-family: sans-serif;
+}
+
+.list-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.filter-card {
+    background: rgba(18,18,18,0.8);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-title {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+}
+
+    .filter-group label {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+.form-select {
+    padding: 0.4rem;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+}
+
+.filter-submit {
+    display: flex;
+    align-items: flex-end;
+}
+
+.apply-btn {
+    padding: 0.6rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+    .apply-btn:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+.accounts-card {
+    background: rgba(18,18,18,0.8);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.accounts-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    padding: 1rem 1.5rem;
+}
+
+    .accounts-card-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+    }
+
+.add-account-button {
+    display: flex;
+}
+
+.btn-add-account {
+    padding: 0.6rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    text-decoration: none;
+    transition: background 0.3s ease;
+}
+
+    .btn-add-account:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+.accounts-card-body {
+    padding: 1rem 1.5rem;
+}
+
+.no-accounts {
+    text-align: center;
+    padding: 1rem;
+    color: #ccc;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.account-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .account-table thead {
+        background: rgba(255,255,255,0.1);
+    }
+
+        .account-table thead th {
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+    .account-table tbody tr {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .account-table tbody td {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+
+.status-active {
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+.status-pending {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.status-red {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.form-select {
+    padding: 0.4rem;
+    border-radius: 8px;
+    border: 1px solid #666;
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
+@@media (max-width: 768px) {
+    .filter-form {
+        flex-direction: column;
+    }
+
+    .accounts-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}

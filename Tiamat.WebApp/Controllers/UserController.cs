@@ -1,13 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using Tiamat.Core.Services;
 using Tiamat.Core.Services.Interfaces;
-using Tiamat.DataAccess;
 using Tiamat.Models;
-using Tiamat.Utility;
+using Tiamat.WebApp.Models;
 
 namespace Tiamat.WebApp.Controllers
 {
@@ -18,13 +15,15 @@ namespace Tiamat.WebApp.Controllers
         private readonly IAccountService _accountService;
         private readonly IAccountSettingService _accountSettingService;
 
-
-        public UserController(SignInManager<User> signInManager,
-                              UserManager<User> userManager, IAccountService _AS, IAccountSettingService accountSettingService)
+        public UserController(
+            SignInManager<User> signInManager,
+            UserManager<User> userManager,
+            IAccountService accountService,
+            IAccountSettingService accountSettingService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
-            _accountService = _AS;
+            _accountService = accountService;
             _accountSettingService = accountSettingService;
         }
 
@@ -61,43 +60,122 @@ namespace Tiamat.WebApp.Controllers
             return View();
         }
 
+
         [Authorize]
-        [HttpGet] 
-        public IActionResult AccountCenter(string? PlatformFilter, string? StatusFilter, string? AccountSettingFilter)
+        [HttpGet]
+        public IActionResult AccountCenter()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-            var userSettingsList = _accountSettingService.GetSettingsForUser(userId).ToList();
-            ViewBag.AccountSettings = userSettingsList;
-
-            ViewBag.SelectedPlatformFilter = PlatformFilter;
-            ViewBag.SelectedStatusFilter = StatusFilter;
-            ViewBag.SelectedSettingFilter = AccountSettingFilter;
+            var settingsForUser = _accountSettingService.GetSettingsForUser(userId);
+            var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
+            {
+                AccountSettingId = s.AccountSettingId,
+                SettingName = s.SettingName
+            }).ToList();
 
             var accounts = _accountService.GetAllAccounts();
 
-            if (!string.IsNullOrEmpty(PlatformFilter))
+            var vm = new AccountCenterViewModel
             {
-                accounts = accounts.Where(a => a.Platform == PlatformFilter);
-            }
-
-            if (!string.IsNullOrEmpty(StatusFilter))
-            {
-                accounts = accounts.Where(a =>
-                    a.Status.ToString().Equals(StatusFilter, StringComparison.OrdinalIgnoreCase));
-            }
-            if (!string.IsNullOrEmpty(AccountSettingFilter))
-            {
-                if (Guid.TryParse(AccountSettingFilter, out var settingId))
+                PlatformFilter = "",
+                StatusFilter = "",
+                AccountSettingFilter = "",
+                Accounts = accounts.Select(a => new AccountItemViewModel
                 {
-                    accounts = accounts.Where(a => a.AccountSettingsId == settingId);
-                }
-            }
+                    AccountId = a.Id,
+                    AccountName = a.AccountName,
+                    InitialCapital = a.InitialCapital,
+                    HighestCapital = a.HighestCapital,
+                    LowestCapital = a.LowestCapital,
 
-            return View(accounts.ToList());
+                    Platform = a.Platform,
+                    Status = a.Status.ToString(),
+                    CreatedAt = a.CreatedAt,
+                    AccountSettingId = a.AccountSettingsId,
+                    AccountSettingName = a.AccountSetting?.SettingName
+                }).ToList(),
+                AccountSettings = accountSettingsVm
+            };
+
+            return View(vm);
         }
 
 
+
+        [Authorize]
+        [HttpPost]
+        public IActionResult AccountCenter(string? PlatformFilter, string? StatusFilter, string? AccountSettingFilter)
+        {
+            TempData["PlatformFilter"] = PlatformFilter ?? string.Empty;
+            TempData["StatusFilter"] = StatusFilter ?? string.Empty;
+            TempData["AccountSettingFilter"] = AccountSettingFilter ?? string.Empty;
+
+            return RedirectToAction(nameof(FilteredAccountCenter));
+        }
+
+
+        [Authorize]
+        [HttpGet]
+        public IActionResult FilteredAccountCenter()
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var platformFilter = TempData["PlatformFilter"] as string ?? "";
+            var statusFilter = TempData["StatusFilter"] as string ?? "";
+            var accountSettingFilter = TempData["AccountSettingFilter"] as string ?? "";
+
+            var settingsForUser = _accountSettingService.GetSettingsForUser(userId);
+            var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
+            {
+                AccountSettingId = s.AccountSettingId,
+                SettingName = s.SettingName
+            }).ToList();
+
+            var accounts = _accountService.GetAllAccounts();
+
+            if (!string.IsNullOrEmpty(platformFilter))
+            {
+                accounts = accounts.Where(a => a.Platform == platformFilter);
+            }
+
+            if (!string.IsNullOrEmpty(statusFilter))
+            {
+                accounts = accounts.Where(a =>
+                    a.Status.ToString().Equals(statusFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(accountSettingFilter) &&
+                Guid.TryParse(accountSettingFilter, out var settingId))
+            {
+                accounts = accounts.Where(a => a.AccountSettingsId == settingId);
+            }
+
+            var accountItemsVm = accounts.Select(a => new AccountItemViewModel
+            {
+                AccountId = a.Id,
+                AccountName = a.AccountName,
+                InitialCapital = a.InitialCapital,
+                HighestCapital = a.HighestCapital,
+                LowestCapital = a.LowestCapital,
+                Platform = a.Platform,
+                Status = a.Status.ToString(),
+                CreatedAt = a.CreatedAt,
+                AccountSettingId = a.AccountSettingsId,
+                AccountSettingName = a.AccountSetting?.SettingName
+            }).ToList();
+
+            var vm = new AccountCenterViewModel
+            {
+                PlatformFilter = platformFilter,
+                StatusFilter = statusFilter,
+                AccountSettingFilter = accountSettingFilter,
+                Accounts = accountItemsVm,
+                AccountSettings = accountSettingsVm
+            };
+
+            return View("AccountCenter", vm);
+        }
 
         [Authorize]
         [HttpGet]
@@ -127,10 +205,8 @@ namespace Tiamat.WebApp.Controllers
             {
                 account.UserId = userId;
                 account.Id = Guid.NewGuid();
-
                 account.CreatedAt = DateTime.UtcNow;
                 account.Status = AccountStatus.Pending;
-
                 account.HighestCapital = account.InitialCapital;
                 account.LowestCapital = account.InitialCapital;
 
@@ -146,9 +222,5 @@ namespace Tiamat.WebApp.Controllers
                 return View(account);
             }
         }
-
-
-
-
     }
 }
