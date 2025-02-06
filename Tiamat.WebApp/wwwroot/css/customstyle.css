@@ -1,0 +1,95 @@
+﻿/* Background gradient */
+body {
+    background: linear-gradient(180deg, #000000, #121212) !important;
+}
+
+/* Navbar-specific styling (you may keep or remove if not used) */
+.navbar-dark .navbar-nav .nav-link {
+    color: #ffffff !important;
+}
+
+    .navbar-dark .navbar-nav .nav-link:hover,
+    .navbar-dark .navbar-nav .nav-link.active {
+        color: #f8f9fa !important;
+    }
+
+/* Force white text in the .bg-dark sidebar nav */
+.bg-dark .nav-link {
+    color: #ffffff !important;
+}
+
+    .bg-dark .nav-link:hover,
+    .bg-dark .nav-link.active {
+        color: #f8f9fa !important;
+    }
+
+/* Sticky top helper class (if used) */
+.sticky-top {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1030 !important;
+}
+
+/* Logo hover effect transition */
+.navbar-brand img {
+    transition: transform 0.3s ease !important;
+}
+
+    .navbar-brand img:hover {
+        transform: scale(1.1) !important;
+    }
+
+/* Ensure nav buttons have no wrapping */
+.nav-link {
+    white-space: nowrap !important;
+}
+
+.btn {
+    white-space: nowrap !important;
+    text-align: center !important;
+}
+
+/* Sign-in button styles */
+#sign-in-btn {
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+}
+
+    #sign-in-btn:hover {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+    }
+
+/* Soft hover effect for nav items */
+.nav-soft {
+    color: #ffffff !important;
+    transition: background 0.3s ease, transform 0.3s ease !important;
+}
+
+    .nav-soft:hover {
+        background: rgba(255, 255, 255, 0.25) !important;
+        transform: scale(1.05) !important;
+    }
+
+/* Footer styling */
+.footer {
+    text-align: center !important;
+    padding: 15px 0 !important;
+    position: relative !important;
+    bottom: 0 !important;
+    width: 100% !important;
+}
+
+    .footer a {
+        color: #ffffff !important;
+        text-decoration: none !important;
+    }
+
+        .footer a:hover {
+            text-decoration: underline !important;
+        }
+
+/* Override for bg-dark if needed (redundant but safe) */
+.bg-dark {
+    background-color: #000 !important;
+}

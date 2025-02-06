@@ -1,0 +1,310 @@
+﻿@using Tiamat.Models
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+}
+
+@model IEnumerable<Tiamat.Models.Account>
+
+@{
+    ViewData["Title"] = "Account List";
+
+    string GetStatusClass(string status)
+    {
+        switch (status?.ToLower())
+        {
+            case "active":
+                return "status-active";
+            case "pending":
+                return "status-pending";
+            case "failed":
+            case "closed":
+                return "status-red";
+            default:
+                return "";
+        }
+    }
+}
+
+<div class="account-list-container">
+    <h1 class="list-title">Account List</h1>
+
+    <div class="filter-card">
+        <h2 class="filter-title">Filters</h2>
+        <form method="get" asp-action="AccountCenter" asp-controller="User" class="filter-form">
+            <div class="filter-group">
+                <label for="PlatformFilter">Platform</label>
+                <select name="PlatformFilter" id="PlatformFilter" class="form-select">
+                    <option value="">All</option>
+                    <option value="MT4">MT4</option>
+                    <option value="MT5">MT5</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="StatusFilter">Status</label>
+                <select name="StatusFilter" id="StatusFilter" class="form-select">
+                    <option value="">All</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Active">Active</option>
+                    <option value="Failed">Failed</option>
+                    <option value="Closed">Closed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="AccountSettingFilter">Account Setting</label>
+                <select name="AccountSettingFilter" id="AccountSettingFilter" class="form-select">
+                    <option value="">All</option>
+                    @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                    {
+                        <option value="@setting.AccountSettingId">@setting.SettingName</option>
+                    }
+                </select>
+
+            </div>
+            <div class="filter-submit">
+                <button type="submit" class="apply-btn">Apply</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="accounts-card">
+        <div class="accounts-card-header">
+            <h2>All Accounts</h2>
+            <div class="add-account-button">
+                <a asp-action="AddAccount" asp-controller="User" class="btn-add-account">Add Account</a>
+            </div>
+        </div>
+
+        <div class="accounts-card-body">
+
+            @if (Model == null || !Model.Any())
+            {
+                <div class="no-accounts">No accounts found.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Initial Capital</th>
+                                <th>Highest Capital</th>
+                                <th>Lowest Capital</th>
+                                <th>Platform</th>
+                                <th>Account Setting</th>
+                                <th>Created At</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var account in Model)
+                            {
+                                <tr>
+                                    <td>@account.AccountName</td>
+                                    <td>@account.InitialCapital</td>
+                                    <td>@account.HighestCapital</td>
+                                    <td>@account.LowestCapital</td>
+                                    <td>@account.Platform</td>
+                                    <td>@(account.AccountSetting?.SettingName ?? "N/A")</td>
+                                    <td>@account.CreatedAt.ToShortDateString()</td>
+                                    <td>
+                                        <span class="@GetStatusClass(account.Status.ToString())">
+                                            @account.Status
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .account-list-container {
+        display: flex;
+        flex-direction: column;
+        padding: 2rem;
+        color: #f0f0f0;
+        font-family: sans-serif;
+    }
+
+    .list-title {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-card {
+        background: rgba(18,18,18,0.8);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.15);
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-title {
+        font-size: 1.4rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        min-width: 150px;
+    }
+
+        .filter-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+    .form-select {
+        padding: 0.4rem;
+        border-radius: 8px;
+        border: none;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+
+    .filter-submit {
+        display: flex;
+        align-items: flex-end;
+    }
+
+    .apply-btn {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .apply-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+    .accounts-card {
+        background: rgba(18,18,18,0.8);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .accounts-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        padding: 1rem 1.5rem;
+    }
+
+        .accounts-card-header h2 {
+            margin: 0;
+            font-size: 1.4rem;
+        }
+
+    .add-account-button {
+        display: flex;
+    }
+
+    .btn-add-account {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        text-decoration: none;
+        transition: background 0.3s ease;
+    }
+
+        .btn-add-account:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+    .accounts-card-body {
+        padding: 1rem 1.5rem;
+    }
+
+    .no-accounts {
+        text-align: center;
+        padding: 1rem;
+        color: #ccc;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        margin-top: 1rem;
+    }
+
+    .account-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .account-table thead {
+            background: rgba(255,255,255,0.1);
+        }
+
+            .account-table thead th {
+                padding: 0.75rem;
+                text-align: left;
+                font-weight: 600;
+            }
+
+        .account-table tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .account-table tbody td {
+            padding: 0.75rem;
+            vertical-align: middle;
+        }
+
+    .status-active {
+        color: #2ecc71;
+        font-weight: bold;
+    }
+
+    .status-pending {
+        color: #f39c12;
+        font-weight: bold;
+    }
+
+    .status-red {
+        color: #e74c3c;
+        font-weight: bold;
+    }
+
+    .form-select {
+        padding: 0.4rem;
+        border-radius: 8px;
+        border: 1px solid #666; 
+        background-color: #3a3a3a; 
+        color: #fff; 
+    }
+
+    @@media (max-width: 768px) {
+        .filter-form {
+            flex-direction: column;
+        }
+
+        .accounts-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+    }
+</style>

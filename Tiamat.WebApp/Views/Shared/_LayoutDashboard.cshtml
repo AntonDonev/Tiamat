@@ -1,0 +1,100 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.3/cyborg/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/customstyle.css" />
+    <link rel="stylesheet" href="~/css/dashboardstyle.css" />
+</head>
+<body class="d-flex flex-column min-vh-100 text-white">
+
+    <div class="container-fluid">
+        <div class="row flex-nowrap">
+            <nav class="bg-dark d-flex flex-column align-items-start justify-content-between
+                  border-end border-secondary sidebar">
+                <div class="text-center mb-3" style="width:100%;">
+                    <a href="#" id="logo">
+                        <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" />
+                    </a>
+                    <div class="sidebar-text" style="font-weight:600; margin-top:0.6rem;">
+                        Tiamat Fund
+                    </div>
+                </div>
+
+                <ul class="nav flex-column w-100" style="gap: 0.6rem;">
+                    <li class="nav-item custom-nav-item active">
+                        <a class="nav-link" href="#" id="home-link">
+                            <i class="bi bi-speedometer2"></i>
+                            <span class="sidebar-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item custom-nav-item">
+                        <a class="nav-link" href="#" id="about-link">
+                            <i class="bi bi-person-circle"></i>
+                            <span class="sidebar-text">Account Center</span>
+                        </a>
+                    </li>
+                    <li class="nav-item custom-nav-item">
+                        <a class="nav-link" href="#" id="settings-link">
+                            <i class="bi bi-gear"></i>
+                            <span class="sidebar-text">Settings</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <ul class="nav flex-column w-100 mt-3" style="gap: 0.6rem;">
+                    <li class="nav-item custom-nav-item">
+                        <a class="nav-link" href="#" id="logout-link">
+                            <i class="bi bi-box-arrow-right"></i>
+                            <span class="sidebar-text">Log Out</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="sidebar-footer">
+                    © 2025 - Tiamat.WebApp -
+                    <a href="#" class="text-white">Privacy</a>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="col px-0">
+                <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
+                    <span>Accounts passed: []</span>
+                    <span>Weekly Change: []</span>
+                    <span>Account Name + role</span>
+                </div>
+                <main class="p-4">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const navbarLinks = document.querySelectorAll(".nav-link");
+
+            navbarLinks.forEach(link => {
+                link.addEventListener("click", function () {
+                    navbarLinks.forEach(navLink => {
+                        navLink.classList.remove("active");
+                        navLink.parentElement.classList.remove("active");
+                        navLink.style.transform = "";
+                    });
+                    this.classList.add("active");
+                    this.parentElement.classList.add("active");
+                });
+            });
+        });
+    </script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,126 @@
+﻿@using Tiamat.Models
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+}
+
+@model Tiamat.Models.Account
+
+@{
+    ViewData["Title"] = "Add Account";
+}
+<div asp-validation-summary="All" class="text-danger"></div>
+
+<div class="add-account-container">
+    <h1 class="title">Add New Account</h1>
+    <div class="add-account-card">
+        <form asp-action="AddAccount" asp-controller="User" method="post">
+            <div class="form-group">
+                <label asp-for="AccountName"></label>
+                <input asp-for="AccountName" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="InitialCapital"></label>
+                <input asp-for="InitialCapital" type="number" step="0.01" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Platform"></label>
+                <select asp-for="Platform" class="form-control">
+                    <option value="MT5">MT5</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="BrokerLogin"></label>
+                <input asp-for="BrokerLogin" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="BrokerPassword"></label>
+                <input asp-for="BrokerPassword" type="password" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="BrokerServer"></label>
+                <input asp-for="BrokerServer" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="AccountSettingsId">Account Setting</label>
+                <select asp-for="AccountSettingsId" class="form-control">
+                    <option value="">Select</option>
+                    @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                    {
+                        <option value="@setting.AccountSettingId">@setting.SettingName</option>
+                    }
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">Add Account</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .add-account-container {
+        padding: 2rem;
+        color: #f0f0f0;
+        font-family: sans-serif;
+    }
+
+    .title {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .add-account-card {
+        background: rgba(18,18,18,0.8);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.15);
+        padding: 1.5rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+    .form-control {
+        padding: 0.5rem;
+        border-radius: 8px;
+        border: none;
+        background: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+
+    .submit-btn {
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .submit-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+    @@media (max-width: 768px) {
+        .add-account-card {
+            width: 100%;
+        }
+    }
+</style>
