@@ -1,4 +1,8 @@
-﻿<!DOCTYPE html>
+﻿@using Tiamat.Core.Services.Interfaces
+@inject IAccountService accountService
+@using System.Security.Claims
+
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -15,6 +19,27 @@
     @{
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+        Guid? userId = null;
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrEmpty(userIdString))
+        {
+            userId = Guid.Parse(userIdString);
+        }
+
+        // Count active accounts
+        var activeAccountsCount = 0;
+        if (userId.HasValue)
+        {
+            activeAccountsCount = accountService.GetActiveAccountsPerUserId(userId.Value);
+        }
+
+        var userName = User.Identity?.Name;
+        var userRole = User.FindFirstValue(ClaimTypes.Role);
+        if (string.IsNullOrEmpty(userRole))
+        {
+            userRole = "No Role";
+        }
     }
 
     <div class="container-fluid">
@@ -31,7 +56,6 @@
                 </div>
 
                 <ul class="nav flex-column w-100" style="gap: 0.6rem;">
-
                     <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "Dashboard" ? "active" : "")">
                         <a class="nav-link"
                            asp-controller="User"
@@ -41,7 +65,6 @@
                             <span class="sidebar-text">Dashboard</span>
                         </a>
                     </li>
-
                     <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "AccountCenter" ? "active" : "")">
                         <a class="nav-link"
                            asp-controller="User"
@@ -51,7 +74,6 @@
                             <span class="sidebar-text">Account Center</span>
                         </a>
                     </li>
-
                     <li class="nav-item custom-nav-item @(currentController == "User" && currentAction == "Settings" ? "active" : "")">
                         <a class="nav-link"
                            asp-controller="User"
@@ -83,9 +105,15 @@
 
             <div class="col px-0">
                 <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
-                    <span>Accounts passed: []</span>
+                    <span>Active Accounts: @activeAccountsCount</span>
                     <span>Weekly Change: []</span>
-                    <span>Account Name + role</span>
+
+                    <span>
+                        @userName
+                        <sub class="ms-1 text-info" style="font-size:0.8rem">
+                            (@userRole)
+                        </sub>
+                    </span>
                 </div>
                 <main class="p-4">
                     @RenderBody()
@@ -100,7 +128,6 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const navbarLinks = document.querySelectorAll(".nav-link");
-
             navbarLinks.forEach(link => {
                 link.addEventListener("mousedown", function () {
                     this.style.transform = "scale(0.97)";

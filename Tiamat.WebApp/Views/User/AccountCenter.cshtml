@@ -70,7 +70,11 @@
                     @foreach (var setting in Model.AccountSettings)
                     {
                         <option value="@setting.AccountSettingId"
-                                selected="@(Model.AccountSettingFilter == setting.AccountSettingId.ToString() ? "selected" : null)">
+                                selected="@(Model.AccountSettingFilter?.Equals(
+                                        setting.AccountSettingId.ToString(),
+                                        StringComparison.OrdinalIgnoreCase) == true
+                                            ? "selected"
+                                            : null)">
                             @setting.SettingName
                         </option>
                     }
@@ -104,8 +108,7 @@
                             <tr>
                                 <th>Name</th>
                                 <th>Initial Capital</th>
-                                <th>Highest Capital</th>
-                                <th>Lowest Capital</th>
+                                <th>Current Capital</th>
                                 <th>Platform</th>
                                 <th>Account Setting</th>
                                 <th>Created At</th>
@@ -118,8 +121,7 @@
                                 <tr>
                                     <td>@account.AccountName</td>
                                     <td>@account.InitialCapital</td>
-                                    <td>@account.HighestCapital</td>
-                                    <td>@account.LowestCapital</td>
+                                    <td>@account.CurrentCapital</td>
                                     <td>@account.Platform</td>
                                     <td>@(account.AccountSettingName ?? "N/A")</td>
                                     <td>@account.CreatedAt.ToShortDateString()</td>

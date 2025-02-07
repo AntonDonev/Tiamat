@@ -65,5 +65,10 @@ namespace Tiamat.Core.Services
                 .Include(a => a.AccountSetting)
                 .ToList();
         }
+
+        public int GetActiveAccountsPerUserId(Guid userId)
+        {
+            return _context.Accounts.Where(x=>x.UserId == userId && x.Status == AccountStatus.Active).Count();
+        }
     }
 }

@@ -1,9 +1,7 @@
-﻿/* Background gradient */
-body {
+﻿body {
     background: linear-gradient(180deg, #000000, #121212) !important;
 }
 
-/* Navbar-specific styling (you may keep or remove if not used) */
 .navbar-dark .navbar-nav .nav-link {
     color: #ffffff !important;
 }
@@ -13,7 +11,6 @@ body {
         color: #f8f9fa !important;
     }
 
-/* Force white text in the .bg-dark sidebar nav */
 .bg-dark .nav-link {
     color: #ffffff !important;
 }
@@ -23,14 +20,12 @@ body {
         color: #f8f9fa !important;
     }
 
-/* Sticky top helper class (if used) */
 .sticky-top {
     position: sticky !important;
     top: 0 !important;
     z-index: 1030 !important;
 }
 
-/* Logo hover effect transition */
 .navbar-brand img {
     transition: transform 0.3s ease !important;
 }
@@ -39,7 +34,6 @@ body {
         transform: scale(1.1) !important;
     }
 
-/* Ensure nav buttons have no wrapping */
 .nav-link {
     white-space: nowrap !important;
 }
@@ -49,7 +43,6 @@ body {
     text-align: center !important;
 }
 
-/* Sign-in button styles */
 #sign-in-btn {
     color: #ffffff !important;
     border-color: #ffffff !important;
@@ -60,7 +53,6 @@ body {
         background-color: #ffffff !important;
     }
 
-/* Soft hover effect for nav items */
 .nav-soft {
     color: #ffffff !important;
     transition: background 0.3s ease, transform 0.3s ease !important;
@@ -71,7 +63,6 @@ body {
         transform: scale(1.05) !important;
     }
 
-/* Footer styling */
 .footer {
     text-align: center !important;
     padding: 15px 0 !important;
@@ -89,7 +80,6 @@ body {
             text-decoration: underline !important;
         }
 
-/* Override for bg-dark if needed (redundant but safe) */
 .bg-dark {
     background-color: #000 !important;
 }

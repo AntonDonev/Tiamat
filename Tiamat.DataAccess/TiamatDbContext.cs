@@ -73,6 +73,10 @@ namespace Tiamat.DataAccess
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<Account>()
+                .Property(a => a.CurrentCapital)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Account>()
                 .Property(a => a.LowestCapital)
                 .HasPrecision(18, 2);
 

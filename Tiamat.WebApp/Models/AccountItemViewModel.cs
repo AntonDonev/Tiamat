@@ -5,6 +5,7 @@
         public Guid AccountId { get; set; }
         public string AccountName { get; set; } = string.Empty;
         public decimal InitialCapital { get; set; }
+        public decimal CurrentCapital { get; set; }
         public decimal HighestCapital { get; set; }
         public decimal LowestCapital { get; set; }
         public string Platform { get; set; } = string.Empty;

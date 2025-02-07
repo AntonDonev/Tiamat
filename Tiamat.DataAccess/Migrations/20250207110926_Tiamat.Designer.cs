@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250206142305_Tiamat")]
+    [Migration("20250207110926_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />
@@ -190,6 +190,10 @@ namespace Tiamat.DataAccess.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CurrentCapital")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("HighestCapital")
                         .HasPrecision(18, 2)

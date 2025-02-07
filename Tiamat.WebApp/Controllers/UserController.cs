@@ -60,7 +60,6 @@ namespace Tiamat.WebApp.Controllers
             return View();
         }
 
-
         [Authorize]
         [HttpGet]
         public IActionResult AccountCenter()
@@ -99,6 +98,91 @@ namespace Tiamat.WebApp.Controllers
             };
 
             return View(vm);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public IActionResult Settings()
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var userSettings = _accountSettingService.GetSettingsForUser(userId);
+
+            var vm = new AccountSettingCenterViewModel
+            {
+                SettingNameFilter = string.Empty,
+                Settings = userSettings.Select(s => new AccountSettingItemViewModel
+                {
+                    AccountSettingId = s.AccountSettingId,
+                    SettingName = s.SettingName,
+                    MaxRiskPerTrade = s.MaxRiskPerTrade,
+                    UntradablePeriodMinutes = s.UntradablePeriodMinutes
+                }).ToList()
+            };
+
+            return View(vm);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public IActionResult Settings(string? settingNameFilter)
+        {
+            TempData["SettingNameFilter"] = settingNameFilter ?? string.Empty;
+            return RedirectToAction(nameof(FilteredSettings));
+        }
+
+        [Authorize]
+        [HttpGet]
+        public IActionResult FilteredSettings()
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var settingNameFilter = TempData["SettingNameFilter"] as string ?? "";
+
+            var userSettings = _accountSettingService.GetSettingsForUser(userId);
+
+            if (!string.IsNullOrEmpty(settingNameFilter))
+            {
+                userSettings = userSettings
+                    .Where(s => s.SettingName.Contains(settingNameFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var vm = new AccountSettingCenterViewModel
+            {
+                SettingNameFilter = settingNameFilter,
+                Settings = userSettings.Select(s => new AccountSettingItemViewModel
+                {
+                    AccountSettingId = s.AccountSettingId,
+                    SettingName = s.SettingName,
+                    MaxRiskPerTrade = s.MaxRiskPerTrade,
+                    UntradablePeriodMinutes = s.UntradablePeriodMinutes
+                }).ToList()
+            };
+
+            return View("Settings", vm);
+        }
+
+        [Authorize]
+        [HttpGet]
+        public IActionResult AddAccountSetting()
+        {
+            return View();
+        }
+
+        [Authorize]
+        [HttpPost]
+        public IActionResult AddAccountSetting(AccountSetting settingModel)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(settingModel);
+            }
+
+            settingModel.AccountSettingId = Guid.NewGuid();
+            settingModel.UserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            _accountSettingService.CreateSetting(settingModel);
+
+            return RedirectToAction(nameof(Settings));
         }
 
 
@@ -156,6 +240,7 @@ namespace Tiamat.WebApp.Controllers
                 AccountId = a.Id,
                 AccountName = a.AccountName,
                 InitialCapital = a.InitialCapital,
+                CurrentCapital = a.CurrentCapital,
                 HighestCapital = a.HighestCapital,
                 LowestCapital = a.LowestCapital,
                 Platform = a.Platform,
@@ -209,6 +294,7 @@ namespace Tiamat.WebApp.Controllers
                 account.Status = AccountStatus.Pending;
                 account.HighestCapital = account.InitialCapital;
                 account.LowestCapital = account.InitialCapital;
+                account.CurrentCapital = account.InitialCapital;
 
                 _accountService.CreateAccount(account);
 

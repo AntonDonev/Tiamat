@@ -1,0 +1,32 @@
+﻿@model Tiamat.Models.AccountSetting
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Add Account Setting";
+}
+
+
+
+<h1>Add new account setting</h1>
+
+<form method="post" asp-action="AddAccountSetting" asp-controller="User">
+    <div>
+        <label asp-for="SettingName"></label>
+        <input asp-for="SettingName" />
+        <span asp-validation-for="SettingName"></span>
+    </div>
+
+    <div>
+        <label asp-for="MaxRiskPerTrade"></label>
+        <input asp-for="MaxRiskPerTrade" />
+        <span asp-validation-for="MaxRiskPerTrade"></span>
+    </div>
+
+    <div>
+        <label asp-for="UntradablePeriodMinutes"></label>
+        <input asp-for="UntradablePeriodMinutes" />
+        <span asp-validation-for="UntradablePeriodMinutes"></span>
+    </div>
+
+    <button type="submit">Create</button>
+</form>

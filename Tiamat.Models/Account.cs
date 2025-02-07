@@ -31,6 +31,7 @@ namespace Tiamat.Models
             InitialCapital = initialCapital;
             HighestCapital = initialCapital;
             LowestCapital = initialCapital;
+            CurrentCapital = initialCapital;
             AccountSettingsId = accountSetting.AccountSettingId;
             AccountSetting = accountSetting;
             Status = AccountStatus.Pending;
@@ -56,6 +57,9 @@ namespace Tiamat.Models
 
         [Required]
         public decimal InitialCapital { get; set; }
+
+        [Required]
+        public decimal CurrentCapital { get; set; }
 
         [Required]
         public decimal HighestCapital { get; set; }

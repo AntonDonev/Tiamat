@@ -1,0 +1,70 @@
+﻿@model Tiamat.WebApp.Models.AccountSettingCenterViewModel
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Account Settings";
+}
+
+<link rel="stylesheet" href="~/css/accountcenter.css" />
+
+<div class="account-list-container">
+    <h1 class="list-title">Account Settings</h1>
+
+    <div class="filter-card">
+        <h2 class="filter-title">Filters</h2>
+        <form method="post" asp-action="Settings" asp-controller="User" class="filter-form">
+            <div class="filter-group">
+                <label for="SettingNameFilter">Setting Name</label>
+                <input type="text"
+                       name="SettingNameFilter"
+                       id="SettingNameFilter"
+                       class="form-select"
+                       value="@Model.SettingNameFilter" />
+            </div>
+
+            <div class="filter-submit">
+                <button type="submit" class="apply-btn">Apply</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="accounts-card">
+        <div class="accounts-card-header">
+            <h2>All Settings</h2>
+            <div class="add-account-button">
+                <a asp-action="AddAccountSetting" asp-controller="User" class="btn-add-account">Add Setting</a>
+            </div>
+        </div>
+
+        <div class="accounts-card-body">
+            @if (Model.Settings == null || !Model.Settings.Any())
+            {
+                <div class="no-accounts">No settings found.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th>Setting Name</th>
+                                <th>Max Risk per Trade</th>
+                                <th>Untradable Period (minutes)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var setting in Model.Settings)
+                            {
+                                <tr>
+                                    <td>@setting.SettingName</td>
+                                    <td>@setting.MaxRiskPerTrade</td>
+                                    <td>@setting.UntradablePeriodMinutes</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

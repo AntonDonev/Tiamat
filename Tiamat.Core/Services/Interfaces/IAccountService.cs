@@ -16,5 +16,6 @@ namespace Tiamat.Core.Services.Interfaces
         void UpdateAccount(Account account);
         void DeleteAccount(Guid id);
         IEnumerable<Account> FilterAccounts(string platform, AccountStatus? status, Guid? accountSettingId);
+        public int GetActiveAccountsPerUserId(Guid userId);
     }
 }
