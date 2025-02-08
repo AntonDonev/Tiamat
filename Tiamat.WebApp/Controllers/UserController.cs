@@ -87,7 +87,7 @@ namespace Tiamat.WebApp.Controllers
                     InitialCapital = a.InitialCapital,
                     HighestCapital = a.HighestCapital,
                     LowestCapital = a.LowestCapital,
-
+                    CurrentCapital = a.CurrentCapital,
                     Platform = a.Platform,
                     Status = a.Status.ToString(),
                     CreatedAt = a.CreatedAt,
@@ -171,17 +171,21 @@ namespace Tiamat.WebApp.Controllers
 
         [Authorize]
         [HttpPost]
-        public IActionResult AddAccountSetting(AccountSetting settingModel)
+        public IActionResult AddAccountSetting(AccountSettingAddViewModel vm)
         {
             if (!ModelState.IsValid)
             {
-                return View(settingModel);
+                return View(vm);
             }
-
-            settingModel.AccountSettingId = Guid.NewGuid();
-            settingModel.UserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            _accountSettingService.CreateSetting(settingModel);
-
+            var setting = new AccountSetting
+            {
+                AccountSettingId = Guid.NewGuid(),
+                SettingName = vm.SettingName,
+                MaxRiskPerTrade = vm.MaxRiskPerTrade,
+                UntradablePeriodMinutes = vm.UntradablePeriodMinutes,
+                UserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
+            };
+            _accountSettingService.CreateSetting(setting);
             return RedirectToAction(nameof(Settings));
         }
 

@@ -20,7 +20,7 @@ namespace Tiamat.Models
     {
         public Account()
         {
-            Positions = new List<Position>();
+            AccountPositions = new List<AccountPosition>();
         }
 
         public Account(User user, string accountName, decimal initialCapital, AccountSetting accountSetting, string platform, string brokerLogin, string brokerPassword, string brokerServer, DateTime createdAt)
@@ -41,7 +41,8 @@ namespace Tiamat.Models
             BrokerPassword = brokerPassword;
             BrokerServer = brokerServer;
             CreatedAt = createdAt;
-            Positions = new List<Position>();
+            AccountPositions = new List<AccountPosition>();
+
         }
 
         [Key]
@@ -72,7 +73,7 @@ namespace Tiamat.Models
         public AccountSetting? AccountSetting { get; set; }
 
 
-        public ICollection<Position> Positions { get; set; }
+        public virtual ICollection<AccountPosition> AccountPositions { get; set; }
 
         [MaxLength(20)]
         public string Platform { get; set; }

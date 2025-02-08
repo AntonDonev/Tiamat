@@ -231,6 +231,45 @@ namespace Tiamat.DataAccess.Migrations
                     b.ToTable("Accounts");
                 });
 
+            modelBuilder.Entity("Tiamat.Models.AccountPosition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PositionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Result")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Risk")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Size")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("PositionId");
+
+                    b.ToTable("AccountPositions");
+                });
+
             modelBuilder.Entity("Tiamat.Models.AccountSetting", b =>
                 {
                     b.Property<Guid>("AccountSettingId")
@@ -258,24 +297,6 @@ namespace Tiamat.DataAccess.Migrations
                     b.ToTable("AccountSettings");
                 });
 
-            modelBuilder.Entity("Tiamat.Models.Instrument", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Instruments");
-                });
-
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.Property<Guid>("Id")
@@ -292,37 +313,23 @@ namespace Tiamat.DataAccess.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("Result")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Risk")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Size")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
 
                     b.ToTable("Positions");
-                });
-
-            modelBuilder.Entity("Tiamat.Models.PositionInstrument", b =>
-                {
-                    b.Property<Guid>("PositionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("InstrumentId")
-                        .HasColumnType("int");
-
-                    b.HasKey("PositionId", "InstrumentId");
-
-                    b.HasIndex("InstrumentId");
-
-                    b.ToTable("PositionInstruments");
                 });
 
             modelBuilder.Entity("Tiamat.Models.User", b =>
@@ -461,6 +468,25 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Tiamat.Models.AccountPosition", b =>
+                {
+                    b.HasOne("Tiamat.Models.Account", "Account")
+                        .WithMany("AccountPositions")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tiamat.Models.Position", "Position")
+                        .WithMany("AccountPositions")
+                        .HasForeignKey("PositionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Position");
+                });
+
             modelBuilder.Entity("Tiamat.Models.AccountSetting", b =>
                 {
                     b.HasOne("Tiamat.Models.User", "User")
@@ -474,7 +500,7 @@ namespace Tiamat.DataAccess.Migrations
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.HasOne("Tiamat.Models.Account", "Account")
-                        .WithMany("Positions")
+                        .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -482,28 +508,9 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("Tiamat.Models.PositionInstrument", b =>
-                {
-                    b.HasOne("Tiamat.Models.Instrument", "Instrument")
-                        .WithMany("PositionInstruments")
-                        .HasForeignKey("InstrumentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Tiamat.Models.Position", "Position")
-                        .WithMany("PositionInstruments")
-                        .HasForeignKey("PositionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Instrument");
-
-                    b.Navigation("Position");
-                });
-
             modelBuilder.Entity("Tiamat.Models.Account", b =>
                 {
-                    b.Navigation("Positions");
+                    b.Navigation("AccountPositions");
                 });
 
             modelBuilder.Entity("Tiamat.Models.AccountSetting", b =>
@@ -511,14 +518,9 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("Accounts");
                 });
 
-            modelBuilder.Entity("Tiamat.Models.Instrument", b =>
-                {
-                    b.Navigation("PositionInstruments");
-                });
-
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
-                    b.Navigation("PositionInstruments");
+                    b.Navigation("AccountPositions");
                 });
 
             modelBuilder.Entity("Tiamat.Models.User", b =>

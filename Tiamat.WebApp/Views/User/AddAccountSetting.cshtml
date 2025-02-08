@@ -5,28 +5,31 @@
     ViewData["Title"] = "Add Account Setting";
 }
 
+<link rel="stylesheet" href="~/css/addAccountStyle.css" />
 
+<div class="add-account-container">
+    <div class="add-account-card">
+        <h1 class="title">Add New Account Setting</h1>
+        <form method="post" asp-action="AddAccountSetting" asp-controller="User">
+            <div class="form-group">
+                <label asp-for="SettingName"></label>
+                <input asp-for="SettingName" class="form-control" />
+                <span asp-validation-for="SettingName"></span>
+            </div>
 
-<h1>Add new account setting</h1>
+            <div class="form-group">
+                <label asp-for="MaxRiskPerTrade"></label>
+                <input asp-for="MaxRiskPerTrade" class="form-control" />
+                <span asp-validation-for="MaxRiskPerTrade"></span>
+            </div>
 
-<form method="post" asp-action="AddAccountSetting" asp-controller="User">
-    <div>
-        <label asp-for="SettingName"></label>
-        <input asp-for="SettingName" />
-        <span asp-validation-for="SettingName"></span>
+            <div class="form-group">
+                <label asp-for="UntradablePeriodMinutes"></label>
+                <input asp-for="UntradablePeriodMinutes" class="form-control" />
+                <span asp-validation-for="UntradablePeriodMinutes"></span>
+            </div>
+
+            <button type="submit" class="submit-btn">Create</button>
+        </form>
     </div>
-
-    <div>
-        <label asp-for="MaxRiskPerTrade"></label>
-        <input asp-for="MaxRiskPerTrade" />
-        <span asp-validation-for="MaxRiskPerTrade"></span>
-    </div>
-
-    <div>
-        <label asp-for="UntradablePeriodMinutes"></label>
-        <input asp-for="UntradablePeriodMinutes" />
-        <span asp-validation-for="UntradablePeriodMinutes"></span>
-    </div>
-
-    <button type="submit">Create</button>
-</form>
+</div>

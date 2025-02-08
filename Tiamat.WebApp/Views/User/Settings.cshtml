@@ -44,11 +44,15 @@
             else
             {
                 <div class="table-responsive">
-                    <table class="account-table">
+                    <table class="account-table" id="accountTable">
                         <thead>
                             <tr>
                                 <th>Setting Name</th>
-                                <th>Max Risk per Trade</th>
+                                <th id="riskHeader" data-sort-dir="asc">
+                                    Max Risk per Trade
+                                    <i class="fa-solid fa-sort table-sort-icon"
+                                       id="riskSortIcon"></i>
+                                </th>
                                 <th>Untradable Period (minutes)</th>
                             </tr>
                         </thead>
@@ -68,3 +72,37 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <!-- Sorting logic for Max Risk per Trade -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const table = document.getElementById("accountTable");
+            const riskHeader = document.getElementById("riskHeader");
+            const riskIcon = document.getElementById("riskSortIcon");
+
+            riskHeader.addEventListener("click", () => {
+                let sortDir = riskHeader.dataset.sortDir || "asc";
+
+                let rows = Array.from(table.tBodies[0].rows);
+                rows.sort((a, b) => {
+                    let aVal = parseFloat(a.cells[1].innerText) || 0;
+                    let bVal = parseFloat(b.cells[1].innerText) || 0;
+                    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+                });
+                rows.forEach(r => table.tBodies[0].appendChild(r));
+
+                // Toggle icon & direction
+                if (sortDir === "asc") {
+                    riskHeader.dataset.sortDir = "desc";
+                    riskIcon.classList.remove("fa-sort", "fa-sort-up");
+                    riskIcon.classList.add("fa-sort-down");
+                } else {
+                    riskHeader.dataset.sortDir = "asc";
+                    riskIcon.classList.remove("fa-sort", "fa-sort-down");
+                    riskIcon.classList.add("fa-sort-up");
+                }
+            });
+        });
+    </script>
+}

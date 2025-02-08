@@ -113,6 +113,7 @@
                                 <th>Account Setting</th>
                                 <th>Created At</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -129,6 +130,12 @@
                                         <span class="@GetStatusClass(account.Status)">
                                             @account.Status
                                         </span>
+                                    </td>
+                                    <td>
+                                        <a asp-action="EditAccount"
+                                           asp-controller="User"
+                                           asp-route-id="@account.AccountId"
+                                           class="btn-edit">Edit</a>
                                     </td>
                                 </tr>
                             }

@@ -14,6 +14,11 @@
           href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/customstyle.css" />
     <link rel="stylesheet" href="~/css/dashboardstyle.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+          integrity="sha512-..."
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
 </head>
 <body class="d-flex flex-column min-vh-100 text-white">
     @{
@@ -27,7 +32,6 @@
             userId = Guid.Parse(userIdString);
         }
 
-        // Count active accounts
         var activeAccountsCount = 0;
         if (userId.HasValue)
         {

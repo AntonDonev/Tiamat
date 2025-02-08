@@ -1,0 +1,41 @@
+﻿@using Tiamat.Models
+@model Tiamat.Models.Account
+
+@{
+    ViewData["Title"] = "Edit Account";
+}
+
+<link rel="stylesheet" href="~/css/addAccountStyle.css" />
+
+<div asp-validation-summary="All" class="text-danger"></div>
+
+<div class="add-account-container">
+    <h1 class="title">Edit Account</h1>
+    <div class="add-account-card">
+
+        <form asp-action="EditAccount" asp-controller="User" method="post">
+            <input type="hidden" asp-for="Id" />
+
+            <div class="form-group">
+                <label asp-for="AccountName"></label>
+                <input asp-for="AccountName" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="AccountSettingsId">Account Setting</label>
+                <select asp-for="AccountSettingsId" class="form-control">
+                    <option value="">Select</option>
+                    @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                    {
+                        <option value="@setting.AccountSettingId"
+                                selected="@(Model.AccountSettingsId == setting.AccountSettingId ? "selected" : null)">
+                            @setting.SettingName
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">Save Changes</button>
+        </form>
+    </div>
+</div>

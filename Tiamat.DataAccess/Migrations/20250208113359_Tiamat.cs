@@ -51,19 +51,6 @@ namespace Tiamat.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Instruments",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Symbol = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Instruments", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AspNetRoleClaims",
                 columns: table => new
                 {
@@ -234,10 +221,11 @@ namespace Tiamat.DataAccess.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Symbol = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Size = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    Risk = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    Result = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Size = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Risk = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Result = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     OpenedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ClosedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -253,28 +241,44 @@ namespace Tiamat.DataAccess.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "PositionInstruments",
+                name: "AccountPositions",
                 columns: table => new
                 {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     PositionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    InstrumentId = table.Column<int>(type: "int", nullable: false)
+                    Size = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Risk = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Result = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    OpenedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ClosedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_PositionInstruments", x => new { x.PositionId, x.InstrumentId });
+                    table.PrimaryKey("PK_AccountPositions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_PositionInstruments_Instruments_InstrumentId",
-                        column: x => x.InstrumentId,
-                        principalTable: "Instruments",
+                        name: "FK_AccountPositions_Accounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "Accounts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_PositionInstruments_Positions_PositionId",
+                        name: "FK_AccountPositions_Positions_PositionId",
                         column: x => x.PositionId,
                         principalTable: "Positions",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountPositions_AccountId",
+                table: "AccountPositions",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountPositions_PositionId",
+                table: "AccountPositions",
+                column: "PositionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Accounts_AccountSettingsId",
@@ -331,11 +335,6 @@ namespace Tiamat.DataAccess.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_PositionInstruments_InstrumentId",
-                table: "PositionInstruments",
-                column: "InstrumentId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Positions_AccountId",
                 table: "Positions",
                 column: "AccountId");
@@ -344,6 +343,9 @@ namespace Tiamat.DataAccess.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AccountPositions");
+
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 
@@ -360,16 +362,10 @@ namespace Tiamat.DataAccess.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "PositionInstruments");
+                name: "Positions");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
-
-            migrationBuilder.DropTable(
-                name: "Instruments");
-
-            migrationBuilder.DropTable(
-                name: "Positions");
 
             migrationBuilder.DropTable(
                 name: "Accounts");

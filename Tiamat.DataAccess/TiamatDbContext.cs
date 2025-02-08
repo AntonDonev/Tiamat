@@ -1,12 +1,8 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Tiamat.Models;
+using System;
 
 namespace Tiamat.DataAccess
 {
@@ -19,9 +15,8 @@ namespace Tiamat.DataAccess
 
         public DbSet<Account> Accounts { get; set; }
         public DbSet<AccountSetting> AccountSettings { get; set; }
-        public DbSet<Instrument> Instruments { get; set; }
         public DbSet<Position> Positions { get; set; }
-        public DbSet<PositionInstrument> PositionInstruments { get; set; }
+        public DbSet<AccountPosition> AccountPositions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,24 +40,29 @@ namespace Tiamat.DataAccess
                 .HasForeignKey(a => a.AccountSettingsId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<PositionInstrument>()
-                .HasKey(pi => new { pi.PositionId, pi.InstrumentId });
-
-            modelBuilder.Entity<PositionInstrument>()
-                .HasOne(pi => pi.Position)
-                .WithMany(p => p.PositionInstruments)
-                .HasForeignKey(pi => pi.PositionId);
-
-            modelBuilder.Entity<PositionInstrument>()
-                .HasOne(pi => pi.Instrument)
-                .WithMany(i => i.PositionInstruments)
-                .HasForeignKey(pi => pi.InstrumentId);
-
-            modelBuilder.Entity<Position>()
-                .HasOne(p => p.Account)
-                .WithMany(a => a.Positions)
-                .HasForeignKey(p => p.AccountId)
+            modelBuilder.Entity<AccountPosition>()
+                .HasOne(ap => ap.Account)
+                .WithMany(a => a.AccountPositions)
+                .HasForeignKey(ap => ap.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AccountPosition>()
+                .HasOne(ap => ap.Position)
+                .WithMany(p => p.AccountPositions)
+                .HasForeignKey(ap => ap.PositionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<AccountPosition>()
+                 .HasOne(ap => ap.Account)
+                 .WithMany(a => a.AccountPositions)
+                 .HasForeignKey(ap => ap.AccountId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AccountPosition>()
+                .HasOne(ap => ap.Position)
+                .WithMany(p => p.AccountPositions)
+                .HasForeignKey(ap => ap.PositionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
 
             modelBuilder.Entity<Account>()
                 .Property(a => a.HighestCapital)
@@ -80,16 +80,16 @@ namespace Tiamat.DataAccess
                 .Property(a => a.LowestCapital)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Position>()
-                .Property(p => p.Result)
+            modelBuilder.Entity<AccountPosition>()
+                .Property(ap => ap.Size)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Position>()
-                .Property(p => p.Risk)
+            modelBuilder.Entity<AccountPosition>()
+                .Property(ap => ap.Risk)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Position>()
-                .Property(p => p.Size)
+            modelBuilder.Entity<AccountPosition>()
+                .Property(ap => ap.Result)
                 .HasPrecision(18, 2);
         }
     }
