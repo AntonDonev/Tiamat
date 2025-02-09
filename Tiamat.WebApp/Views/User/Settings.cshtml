@@ -74,7 +74,6 @@
 </div>
 
 @section Scripts {
-    <!-- Sorting logic for Max Risk per Trade -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const table = document.getElementById("accountTable");
@@ -92,7 +91,6 @@
                 });
                 rows.forEach(r => table.tBodies[0].appendChild(r));
 
-                // Toggle icon & direction
                 if (sortDir === "asc") {
                     riskHeader.dataset.sortDir = "desc";
                     riskIcon.classList.remove("fa-sort", "fa-sort-up");

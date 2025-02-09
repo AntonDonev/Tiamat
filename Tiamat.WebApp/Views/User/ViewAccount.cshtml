@@ -1,0 +1,159 @@
+﻿@using Tiamat.Models
+@model Tiamat.WebApp.Models.ViewAccountViewModel
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "View Account";
+}
+
+@functions
+{
+    string GetStatusClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "active" => "status-active",
+            "pending" => "status-pending",
+            "failed" or "closed" => "status-red",
+            _ => ""
+        };
+    }
+}
+
+<link rel="stylesheet" href="~/css/accountcenter.css" />
+
+<div class="account-details-container">
+    <div class="accounts-card">
+        <div class="accounts-card-header">
+            <h2>Account Information</h2>
+        </div>
+        <div class="accounts-card-body">
+            <form method="post" asp-action="ViewAccount" asp-controller="User">
+                <input type="hidden" asp-for="AccountId" />
+
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th>Account Name</th>
+                                <th>Initial Capital</th>
+                                <th>Platform</th>
+                                <th>Broker Login</th>
+                                <th>Broker Password</th>
+                                <th>Broker Server</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Account Setting</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <input asp-for="AccountName" class="form-control" />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.InitialCapital" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.Platform" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.BrokerLogin" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.BrokerPassword" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.BrokerServer" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control @GetStatusClass(Model.Status.ToString())"
+                                           value="@Model.Status" disabled />
+                                </td>
+
+                                <td>
+                                    <input class="form-control" value="@Model.CreatedAt.ToShortDateString()" disabled />
+                                </td>
+
+                                <td>
+                                    <select asp-for="AccountSettingsId" class="form-control">
+                                        <option value="">Select</option>
+                                        @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                                        {
+                                            <option value="@setting.AccountSettingId"
+                                                    selected="@(Model.AccountSettingsId == setting.AccountSettingId ? "selected" : null)">
+                                                @setting.SettingName
+                                            </option>
+                                        }
+                                    </select>
+                                </td>
+
+                                <td>
+                                    <button type="submit" class="btn-save-changes">Save Changes</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="accounts-card">
+        <div class="accounts-card-header">
+            <h2>Positions for @Model.AccountName</h2>
+        </div>
+        <div class="accounts-card-body">
+            @if (Model.Positions == null || !Model.Positions.Any())
+            {
+                <div class="no-positions">No positions found for this account.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Size</th>
+                                <th>Risk</th>
+                                <th>Result</th>
+                                <th>Opened At</th>
+                                <th>Closed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pos in Model.Positions)
+                            {
+                                <tr>
+                                    <td>@pos.Symbol</td>
+                                    <td>@pos.Size</td>
+                                    <td>@pos.Risk</td>
+                                    <td>@pos.Result</td>
+                                    <td>@pos.OpenedAt.ToShortDateString()</td>
+                                    <td>
+                                        @if (pos.ClosedAt.HasValue)
+                                        {
+                                            @pos.ClosedAt.Value.ToShortDateString()
+                                        }
+                                        else
+                                        {
+                                            <span class="open-position">Open</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

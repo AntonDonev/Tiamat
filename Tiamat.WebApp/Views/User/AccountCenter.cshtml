@@ -131,11 +131,13 @@
                                             @account.Status
                                         </span>
                                     </td>
-                                    <td>
-                                        <a asp-action="EditAccount"
+                                    <td class="action-cell">
+                                        <a asp-action="ViewAccount"
                                            asp-controller="User"
                                            asp-route-id="@account.AccountId"
-                                           class="btn-edit">Edit</a>
+                                           class="btn-action btn-edit">
+                                            View
+                                        </a>
                                     </td>
                                 </tr>
                             }

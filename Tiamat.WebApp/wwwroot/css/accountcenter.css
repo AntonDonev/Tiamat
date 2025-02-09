@@ -215,3 +215,24 @@
     .btn-edit:hover {
         background-color: #0056b3;
     }
+
+.btn-approve {
+    background-color: #28a745; 
+    color: white;
+    margin-right: 5px;
+}
+
+.btn-deny {
+    background-color: #dc3545;
+    color: white;
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}

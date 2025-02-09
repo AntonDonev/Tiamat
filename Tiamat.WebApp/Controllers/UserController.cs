@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
@@ -47,6 +48,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -59,6 +61,76 @@ namespace Tiamat.WebApp.Controllers
         {
             return View();
         }
+
+        [HttpGet]
+        public IActionResult ViewAccount(Guid id)
+        {
+            var account = _accountService.GetAccountWithPositions(id);
+            if (account == null) return NotFound();
+
+            var accountSettings = _accountSettingService.GetSettingsForUser(account.UserId);
+
+            var viewModel = new ViewAccountViewModel
+            {
+                AccountId = account.Id,
+                AccountName = account.AccountName,
+                AccountSettingsId = account.AccountSettingsId,
+                InitialCapital = account.InitialCapital,
+                CurrentCapital = account.CurrentCapital,
+                HighestCapital = account.HighestCapital,
+                LowestCapital = account.LowestCapital,
+                Platform = account.Platform,
+                BrokerLogin = account.BrokerLogin,
+                BrokerPassword = account.BrokerPassword,
+                BrokerServer = account.BrokerServer,
+                Status = account.Status,
+                VPSName = account.VPSName,
+                AdminEmail = account.AdminEmail,
+                CreatedAt = account.CreatedAt,
+                LastUpdatedAt = account.LastUpdatedAt,
+                Positions = account.AccountPositions.Select(ap => new PositionViewModel
+                {
+                    PositionId = ap.Position.Id,
+                    Symbol = ap.Position.Symbol,
+                    Size = ap.Position.Size,
+                    Risk = ap.Position.Risk,
+                    Result = ap.Position.Result,
+                    OpenedAt = ap.Position.OpenedAt,
+                    ClosedAt = ap.Position.ClosedAt
+                }).ToList()
+            };
+
+            ViewBag.AccountSettings = accountSettings.ToList();
+
+            return View(viewModel);
+        }
+
+
+        [HttpPost]
+        public IActionResult ViewAccount(ViewAccountViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.AccountSettings = _accountSettingService.GetSettingsForUser(Guid.Empty).ToList();
+                return View(model);
+            }
+
+            var account = _accountService.GetAccountById(model.AccountId);
+            if (account == null) return NotFound();
+
+            account.AccountName = model.AccountName;
+            if (model.AccountSettingsId.HasValue)
+            {
+                account.AccountSettingsId = model.AccountSettingsId.Value;
+            }
+
+            account.LastUpdatedAt = DateTime.UtcNow;
+
+            _accountService.UpdateAccount(account);
+
+            return RedirectToAction("ViewAccount", new { id = account.Id });
+        }
+
 
         [Authorize]
         [HttpGet]
@@ -73,7 +145,7 @@ namespace Tiamat.WebApp.Controllers
                 SettingName = s.SettingName
             }).ToList();
 
-            var accounts = _accountService.GetAllAccounts();
+            var accounts = _accountService.GetAllAccounts().Where(a => a.UserId == userId);
 
             var vm = new AccountCenterViewModel
             {
@@ -162,6 +234,60 @@ namespace Tiamat.WebApp.Controllers
             return View("Settings", vm);
         }
 
+        [HttpPost]
+        public IActionResult DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
+        {
+            _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
+
+            if (useDefaultDenyMessage)
+            {
+                message = "After careful consideration, we regret to inform you ...";
+            }
+
+            //_notificationService.SendAccountDeniedNotification(
+            //    id,
+            //    title,    
+            //    message  
+            //);
+
+            return RedirectToAction(nameof(AdminPanel));
+        }
+
+
+        [HttpGet]
+        public IActionResult AdminPanel()
+        {
+            var pendingAccounts = _accountService.GetAllAccounts()
+                                   .Where(a => a.Status == AccountStatus.Pending)
+                                   .ToList();
+
+            return View(pendingAccounts);
+        }
+
+        [HttpPost]
+        public IActionResult ApproveAccount(Guid id)
+        {
+            _accountService.ChangeAccountStatus(id, AccountStatus.Active);
+            return RedirectToAction(nameof(AdminPanel));
+        }
+
+        [HttpPost]
+        public IActionResult DenyAccount(Guid id)
+        {
+            _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
+            return RedirectToAction(nameof(AdminPanel));
+        }
+
+        [HttpPost]
+        public IActionResult ApproveAccountWithNotification(Guid id, string title, string message)
+        {
+            _accountService.ChangeAccountStatus(id, AccountStatus.Active);
+
+            //_notificationService.SendAccountApprovedNotification(id, title, message);
+
+            return RedirectToAction(nameof(AdminPanel));
+        }
+
         [Authorize]
         [HttpGet]
         public IActionResult AddAccountSetting()
@@ -220,7 +346,7 @@ namespace Tiamat.WebApp.Controllers
                 SettingName = s.SettingName
             }).ToList();
 
-            var accounts = _accountService.GetAllAccounts();
+            var accounts = _accountService.GetAllAccounts().Where(a => a.UserId == userId);
 
             if (!string.IsNullOrEmpty(platformFilter))
             {

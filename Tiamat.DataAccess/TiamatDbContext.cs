@@ -18,10 +18,15 @@ namespace Tiamat.DataAccess
         public DbSet<Position> Positions { get; set; }
         public DbSet<AccountPosition> AccountPositions { get; set; }
 
+        // Add these DbSets
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationUser> NotificationUsers { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // Existing setup
             modelBuilder.Entity<User>()
                 .HasMany(u => u.AccountSettings)
                 .WithOne(a => a.User)
@@ -51,18 +56,18 @@ namespace Tiamat.DataAccess
                 .WithMany(p => p.AccountPositions)
                 .HasForeignKey(ap => ap.PositionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<AccountPosition>()
-                 .HasOne(ap => ap.Account)
-                 .WithMany(a => a.AccountPositions)
-                 .HasForeignKey(ap => ap.AccountId)
-                 .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(ap => ap.Account)
+                .WithMany(a => a.AccountPositions)
+                .HasForeignKey(ap => ap.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<AccountPosition>()
                 .HasOne(ap => ap.Position)
                 .WithMany(p => p.AccountPositions)
                 .HasForeignKey(ap => ap.PositionId)
                 .OnDelete(DeleteBehavior.Restrict);
-
 
             modelBuilder.Entity<Account>()
                 .Property(a => a.HighestCapital)
@@ -91,6 +96,21 @@ namespace Tiamat.DataAccess
             modelBuilder.Entity<AccountPosition>()
                 .Property(ap => ap.Result)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<NotificationUser>()
+                .HasKey(nu => new { nu.NotificationId, nu.UserId });
+
+            modelBuilder.Entity<NotificationUser>()
+                .HasOne(nu => nu.Notification)
+                .WithMany(n => n.NotificationUsers)
+                .HasForeignKey(nu => nu.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NotificationUser>()
+                .HasOne(nu => nu.User)
+                .WithMany(u => u.NotificationUsers)
+                .HasForeignKey(nu => nu.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

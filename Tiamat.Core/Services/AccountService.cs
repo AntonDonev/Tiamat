@@ -68,7 +68,26 @@ namespace Tiamat.Core.Services
 
         public int GetActiveAccountsPerUserId(Guid userId)
         {
-            return _context.Accounts.Where(x=>x.UserId == userId && x.Status == AccountStatus.Active).Count();
+            return _context.Accounts.Where(x => x.UserId == userId && x.Status == AccountStatus.Active).Count();
+        }
+
+        public void ChangeAccountStatus(Guid accountId, AccountStatus newStatus)
+        {
+            var account = _context.Accounts.FirstOrDefault(a => a.Id == accountId);
+            if (account != null)
+            {
+                account.Status = newStatus;
+                _context.SaveChanges();
+            }
+        }
+
+        public Account GetAccountWithPositions(Guid id)
+        {
+            return _context.Accounts
+                .Include(a => a.AccountPositions)
+                    .ThenInclude(ap => ap.Position)
+                .Include(a => a.AccountSetting)
+                .FirstOrDefault(a => a.Id == id);
         }
     }
 }

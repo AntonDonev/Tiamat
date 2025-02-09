@@ -1,0 +1,168 @@
+﻿@model IEnumerable<Tiamat.Models.Account>
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Pending Accounts";
+}
+
+@functions {
+    string GetStatusClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "active" => "status-active",
+            "pending" => "status-pending",
+            "failed" or "closed" => "status-red",
+            _ => ""
+        };
+    }
+}
+
+<link rel="stylesheet" href="~/css/accountcenter.css" />
+
+<div class="account-list-container">
+    <h1 class="list-title">Pending Accounts</h1>
+
+    <div class="accounts-card">
+        <div class="accounts-card-header">
+            <h2>Review Pending</h2>
+        </div>
+
+        <div class="accounts-card-body">
+            @if (!Model.Any())
+            {
+                <div class="no-accounts">No pending accounts found.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Initial Capital</th>
+                                <th>Current Capital</th>
+                                <th>Platform</th>
+                                <th>Account Setting</th>
+                                <th>Created At</th>
+                                <th>Status</th>
+                                <th class="action-cell">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var account in Model)
+                            {
+                                <tr>
+                                    <td>@account.AccountName</td>
+                                    <td>@account.InitialCapital</td>
+                                    <td>@account.CurrentCapital</td>
+                                    <td>@account.Platform</td>
+                                    <td>@(account.AccountSetting?.SettingName ?? "N/A")</td>
+                                    <td>@account.CreatedAt.ToShortDateString()</td>
+                                    <td>
+                                        <span class="@GetStatusClass(account.Status.ToString())">
+                                            @account.Status
+                                        </span>
+                                    </td>
+                                    <td class="action-cell">
+                                        <form asp-action="ApproveAccount"
+                                              asp-controller="Admin"
+                                              asp-route-id="@account.Id"
+                                              method="post"
+                                              style="display:inline;">
+                                            <button type="submit" class="btn-action btn-approve">Accept</button>
+                                        </form>
+
+                                        <button type="button"
+                                                class="btn-action btn-deny"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#denyNotifyModal"
+                                                data-bs-accountid="@account.Id">
+                                            Deny
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="modal fade"
+     id="denyNotifyModal"
+     tabindex="-1"
+     aria-labelledby="denyNotifyModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="denyNotifyModalLabel">Application Denied</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="denyNotifyForm"
+                      asp-action="DenyAccountWithNotification"
+                      asp-controller="Admin"
+                      method="post">
+                    <input type="hidden" name="Id" id="denyAccountIdHidden" />
+
+                    <input type="hidden" name="Title" value="Application Denied" />
+
+                    <div class="mb-3">
+                        <label for="notificationMessage" class="form-label fw-bold">Reason / Message</label>
+                        <textarea class="form-control"
+                                  id="notificationMessage"
+                                  name="Message"
+                                  rows="4"
+                                  placeholder="Write a reason for denial..."></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="useDefaultDenyMessage"
+                               name="useDefaultDenyMessage" />
+                        <label class="form-check-label" for="useDefaultDenyMessage">
+                            Use default denial message
+                        </label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var denyNotifyModal = document.getElementById('denyNotifyModal');
+        denyNotifyModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var accountId = button.getAttribute('data-bs-accountid');
+            document.getElementById('denyAccountIdHidden').value = accountId;
+
+            document.getElementById('notificationMessage').value = "";
+            document.getElementById('useDefaultDenyMessage').checked = false;
+        });
+
+        document.getElementById('useDefaultDenyMessage').addEventListener('change', function () {
+            var messageArea = document.getElementById('notificationMessage');
+            if (this.checked) {
+                messageArea.value = "After careful consideration, we regret to inform you that your application has been denied. We appreciate your interest, and if you have any questions or would like to reapply in the future, please do not hesitate to contact our support team.";
+            } else {
+                messageArea.value = "";
+            }
+        });
+    </script>
+}

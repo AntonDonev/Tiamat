@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250208113359_Tiamat")]
+    [Migration("20250209153116_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />
@@ -300,6 +300,49 @@ namespace Tiamat.DataAccess.Migrations
                     b.ToTable("AccountSettings");
                 });
 
+            modelBuilder.Entity("Tiamat.Models.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Tiamat.Models.NotificationUser", b =>
+                {
+                    b.Property<Guid>("NotificationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NotificationUsers");
+                });
+
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.Property<Guid>("Id")
@@ -500,6 +543,25 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Tiamat.Models.NotificationUser", b =>
+                {
+                    b.HasOne("Tiamat.Models.Notification", "Notification")
+                        .WithMany("NotificationUsers")
+                        .HasForeignKey("NotificationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Tiamat.Models.User", "User")
+                        .WithMany("NotificationUsers")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Notification");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.HasOne("Tiamat.Models.Account", "Account")
@@ -521,6 +583,11 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("Accounts");
                 });
 
+            modelBuilder.Entity("Tiamat.Models.Notification", b =>
+                {
+                    b.Navigation("NotificationUsers");
+                });
+
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.Navigation("AccountPositions");
@@ -531,6 +598,8 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("AccountSettings");
 
                     b.Navigation("Accounts");
+
+                    b.Navigation("NotificationUsers");
                 });
 #pragma warning restore 612, 618
         }
