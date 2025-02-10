@@ -35,29 +35,43 @@ namespace Tiamat.Core.Services
 
         public void CreateNotification(Notification notification, IEnumerable<Guid> userIds)
         {
-            _context.Notifications.Add(notification);
+            if (notification == null)
+                throw new ArgumentNullException(nameof(notification));
 
-            foreach (var userId in userIds)
+            if (userIds == null)
+                userIds = Enumerable.Empty<Guid>();
+
+            if (notification.Id == Guid.Empty)
+                notification.Id = Guid.NewGuid();
+
+            notification.NotificationUsers = userIds.Select(userId => new NotificationUser
             {
-                var notificationUser = new NotificationUser
-                {
-                    NotificationId = notification.Id,
-                    UserId = userId
-                };
-                _context.NotificationUsers.Add(notificationUser);
-            }
+                Id = Guid.NewGuid(),
+                NotificationId = notification.Id,
+                UserId = userId,
+                ReadAt = null,
+                IsRead = false
 
+            }).ToList();
+
+            _context.Notifications.Add(notification);
             _context.SaveChanges();
         }
 
         public void UpdateNotification(Notification notification, IEnumerable<Guid> userIds)
         {
+            if (notification == null)
+                throw new ArgumentNullException(nameof(notification));
+
+            if (userIds == null)
+                userIds = Enumerable.Empty<Guid>();
+
             var existingNotification = _context.Notifications
                 .Include(n => n.NotificationUsers)
                 .FirstOrDefault(n => n.Id == notification.Id);
 
             if (existingNotification == null)
-                return;
+                return; 
 
             existingNotification.Title = notification.Title;
             existingNotification.Description = notification.Description;
@@ -65,16 +79,12 @@ namespace Tiamat.Core.Services
 
             _context.NotificationUsers.RemoveRange(existingNotification.NotificationUsers);
 
-            // Add new relationships
-            foreach (var userId in userIds)
+            existingNotification.NotificationUsers = userIds.Select(userId => new NotificationUser
             {
-                var notificationUser = new NotificationUser
-                {
-                    NotificationId = existingNotification.Id,
-                    UserId = userId
-                };
-                _context.NotificationUsers.Add(notificationUser);
-            }
+                Id = Guid.NewGuid(),
+                NotificationId = existingNotification.Id,
+                UserId = userId
+            }).ToList();
 
             _context.SaveChanges();
         }
@@ -91,8 +101,16 @@ namespace Tiamat.Core.Services
             _context.NotificationUsers.RemoveRange(notification.NotificationUsers);
 
             _context.Notifications.Remove(notification);
-
             _context.SaveChanges();
+        }
+
+        public IEnumerable<NotificationUser> GetUserNotificationsUser(Guid? userId)
+        {
+            return _context.NotificationUsers
+                .Include(nu => nu.Notification)
+                .Where(nu => nu.UserId == userId)
+                .OrderByDescending(nu => nu.Notification.DateTime)
+                .ToList();
         }
 
         public IEnumerable<Notification> GetUserNotifications(Guid userId)

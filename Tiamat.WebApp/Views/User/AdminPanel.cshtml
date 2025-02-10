@@ -64,14 +64,17 @@
                                         </span>
                                     </td>
                                     <td class="action-cell">
-                                        <form asp-action="ApproveAccount"
-                                              asp-controller="Admin"
-                                              asp-route-id="@account.Id"
-                                              method="post"
-                                              style="display:inline;">
-                                            <button type="submit" class="btn-action btn-approve">Accept</button>
-                                        </form>
 
+                                        <!-- ACCEPT button: opens the ACCEPT MODAL -->
+                                        <button type="button"
+                                                class="btn-action btn-approve"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#acceptNotifyModal"
+                                                data-bs-accountid="@account.Id">
+                                            Accept
+                                        </button>
+
+                                        <!-- DENY button: opens the DENY MODAL -->
                                         <button type="button"
                                                 class="btn-action btn-deny"
                                                 data-bs-toggle="modal"
@@ -90,6 +93,7 @@
     </div>
 </div>
 
+<!-- DENY MODAL -->
 <div class="modal fade"
      id="denyNotifyModal"
      tabindex="-1"
@@ -104,10 +108,10 @@
             <div class="modal-body">
                 <form id="denyNotifyForm"
                       asp-action="DenyAccountWithNotification"
-                      asp-controller="Admin"
+                      asp-controller="User"
                       method="post">
+                    
                     <input type="hidden" name="Id" id="denyAccountIdHidden" />
-
                     <input type="hidden" name="Title" value="Application Denied" />
 
                     <div class="mb-3">
@@ -144,8 +148,64 @@
     </div>
 </div>
 
+<!-- ACCEPT MODAL -->
+<div class="modal fade"
+     id="acceptNotifyModal"
+     tabindex="-1"
+     aria-labelledby="acceptNotifyModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="acceptNotifyModalLabel">Application Approved</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="acceptNotifyForm"
+                      asp-action="ApproveAccount"
+                      asp-controller="User"
+                      method="post">
+                    
+                    <input type="hidden" name="Id" id="acceptAccountIdHidden" />
+                    <input type="hidden" name="Title" value="Application Accepted" />
+
+                    <div class="mb-3">
+                        <label for="acceptMessage" class="form-label fw-bold">Message</label>
+                        <textarea class="form-control"
+                                  id="acceptMessage"
+                                  name="Message"
+                                  rows="4"
+                                  placeholder="Write an acceptance message..."></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="useDefaultAcceptMessage"
+                               name="useDefaultMessage" />
+                        <label class="form-check-label" for="useDefaultAcceptMessage">
+                            Use default acceptance message
+                        </label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
+        // DENY modal
         var denyNotifyModal = document.getElementById('denyNotifyModal');
         denyNotifyModal.addEventListener('show.bs.modal', function (event) {
             var button = event.relatedTarget;
@@ -160,6 +220,26 @@
             var messageArea = document.getElementById('notificationMessage');
             if (this.checked) {
                 messageArea.value = "After careful consideration, we regret to inform you that your application has been denied. We appreciate your interest, and if you have any questions or would like to reapply in the future, please do not hesitate to contact our support team.";
+            } else {
+                messageArea.value = "";
+            }
+        });
+
+        // ACCEPT modal
+        var acceptNotifyModal = document.getElementById('acceptNotifyModal');
+        acceptNotifyModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var accountId = button.getAttribute('data-bs-accountid');
+            document.getElementById('acceptAccountIdHidden').value = accountId;
+
+            document.getElementById('acceptMessage').value = "";
+            document.getElementById('useDefaultAcceptMessage').checked = false;
+        });
+
+        document.getElementById('useDefaultAcceptMessage').addEventListener('change', function () {
+            var messageArea = document.getElementById('acceptMessage');
+            if (this.checked) {
+                messageArea.value = "Your account has been approved! Welcome on board. We appreciate your trust in our platform and look forward to supporting you.";
             } else {
                 messageArea.value = "";
             }

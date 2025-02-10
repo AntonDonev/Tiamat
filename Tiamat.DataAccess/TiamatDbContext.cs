@@ -18,15 +18,13 @@ namespace Tiamat.DataAccess
         public DbSet<Position> Positions { get; set; }
         public DbSet<AccountPosition> AccountPositions { get; set; }
 
-        // Add these DbSets
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationUser> NotificationUsers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
-            // Existing setup
+ 
             modelBuilder.Entity<User>()
                 .HasMany(u => u.AccountSettings)
                 .WithOne(a => a.User)

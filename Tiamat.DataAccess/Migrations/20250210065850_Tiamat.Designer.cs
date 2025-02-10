@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250209153116_Tiamat")]
+    [Migration("20250210065850_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />
@@ -330,10 +330,13 @@ namespace Tiamat.DataAccess.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime>("ReadAt")
+                    b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("NotificationId", "UserId");

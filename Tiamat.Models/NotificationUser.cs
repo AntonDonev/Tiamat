@@ -10,6 +10,8 @@ namespace Tiamat.Models
 {
     public class NotificationUser
     {
+        [Key]
+        public Guid Id { get; set; }
 
         [ForeignKey(nameof(Notification))]
 
@@ -23,7 +25,6 @@ namespace Tiamat.Models
 
         [Required]
         public bool IsRead { get; set; }
-        [Required]
         public DateTime? ReadAt { get; set; }
     }
 }

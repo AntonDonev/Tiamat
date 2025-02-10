@@ -13,6 +13,7 @@ namespace Tiamat.Core.Services.Interfaces
         Notification GetNotificationById(Guid id);
         void CreateNotification(Notification notification, IEnumerable<Guid> userIds);
         void UpdateNotification(Notification notification, IEnumerable<Guid> userIds);
+        public IEnumerable<NotificationUser> GetUserNotificationsUser(Guid? userId);
         void DeleteNotification(Guid notificationId);
 
         IEnumerable<Notification> GetUserNotifications(Guid userId);

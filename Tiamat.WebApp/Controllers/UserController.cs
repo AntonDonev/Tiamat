@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Tiamat.Core.Services;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
 using Tiamat.WebApp.Models;
@@ -15,17 +16,21 @@ namespace Tiamat.WebApp.Controllers
         private readonly UserManager<User> _userManager;
         private readonly IAccountService _accountService;
         private readonly IAccountSettingService _accountSettingService;
+        private readonly INotificationService _notificationService;
 
         public UserController(
             SignInManager<User> signInManager,
             UserManager<User> userManager,
             IAccountService accountService,
-            IAccountSettingService accountSettingService)
+            IAccountSettingService accountSettingService,
+            INotificationService notificationService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _accountService = accountService;
             _accountSettingService = accountSettingService;
+            _notificationService = notificationService;
+
         }
 
         [HttpGet]
@@ -234,26 +239,6 @@ namespace Tiamat.WebApp.Controllers
             return View("Settings", vm);
         }
 
-        [HttpPost]
-        public IActionResult DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
-        {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
-
-            if (useDefaultDenyMessage)
-            {
-                message = "After careful consideration, we regret to inform you ...";
-            }
-
-            //_notificationService.SendAccountDeniedNotification(
-            //    id,
-            //    title,    
-            //    message  
-            //);
-
-            return RedirectToAction(nameof(AdminPanel));
-        }
-
-
         [HttpGet]
         public IActionResult AdminPanel()
         {
@@ -265,25 +250,82 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult ApproveAccount(Guid id)
+        public IActionResult ApproveAccount(Guid id, string title, string message, bool useDefaultMessage)
         {
             _accountService.ChangeAccountStatus(id, AccountStatus.Active);
+
+            if (useDefaultMessage)
+            {
+                message = "Your account has been accepted...";
+            }
+
+
+            Notification notification = new Notification();
+            notification.Id = Guid.NewGuid();
+            notification.Title = title;
+            notification.Description = message;
+            notification.DateTime = DateTime.Now;
+            List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
+            _notificationService.CreateNotification(notification, target);
+
             return RedirectToAction(nameof(AdminPanel));
         }
 
         [HttpPost]
-        public IActionResult DenyAccount(Guid id)
+        [ValidateAntiForgeryToken]
+        public IActionResult MarkNotificationAsRead(Guid notificationId)
+        {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString))
+            {
+                return Json(new { success = false });
+            }
+
+            var userId = Guid.Parse(userIdString);
+
+            _notificationService.MarkNotificationAsRead(userId, notificationId);
+
+            var newCount = _notificationService.GetUserUnreadNotifications(userId).Count();
+
+            return Json(new { success = true, unreadCount = newCount });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken] 
+        public IActionResult MarkAllAsRead()
+        {
+            var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdString))
+            {
+                return Json(new { success = false });
+            }
+
+            var userId = Guid.Parse(userIdString);
+
+            _notificationService.MarkAllNotificationsAsRead(userId);
+
+            var newCount = _notificationService.GetUserUnreadNotifications(userId).Count();
+
+            return Json(new { success = true, unreadCount = newCount });
+        }
+
+        [HttpPost]
+        public IActionResult DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
         {
             _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
-            return RedirectToAction(nameof(AdminPanel));
-        }
 
-        [HttpPost]
-        public IActionResult ApproveAccountWithNotification(Guid id, string title, string message)
-        {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Active);
+            if (useDefaultDenyMessage)
+            {
+                message = "After careful consideration, we regret to inform you...";
+            }
 
-            //_notificationService.SendAccountApprovedNotification(id, title, message);
+            Notification notification = new Notification();
+            notification.Id = Guid.NewGuid();
+            notification.Title = title;
+            notification.Description = message;
+            notification.DateTime = DateTime.Now;
+            List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
+            _notificationService.CreateNotification(notification, target);
 
             return RedirectToAction(nameof(AdminPanel));
         }

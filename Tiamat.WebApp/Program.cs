@@ -41,6 +41,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddHostedService<SeedDatabase>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAccountSettingService, AccountSettingService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
