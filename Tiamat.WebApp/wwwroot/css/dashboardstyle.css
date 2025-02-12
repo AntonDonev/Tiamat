@@ -99,3 +99,36 @@ nav.sidebar:hover .sidebar-footer {
 body.d-flex {
     background: linear-gradient(to bottom right, #000 0%, #000 25%, #121212 100%) !important;
 }
+
+.dropdown-menu.dropdown-menu-dark {
+    background: linear-gradient(135deg, #1d1d1d 0%, #111 100%);
+    border: 1px solid #2d2d2d;
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+    transform-origin: top center;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.show > .dropdown-menu.dropdown-menu-dark {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.nav-item.dropdown:hover .dropdown-menu.dropdown-menu-dark {
+    display: block;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.dropdown-menu-dark .dropdown-item {
+    color: #fff;
+    transition: background-color 0.2s;
+}
+
+    .dropdown-menu-dark .dropdown-item:hover {
+        background-color: #343a40;
+        color: #fff;
+        text-decoration: none;
+    }

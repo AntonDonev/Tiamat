@@ -18,7 +18,7 @@ namespace Tiamat.Core.Services.Interfaces
         IEnumerable<Account> FilterAccounts(string platform, AccountStatus? status, Guid? accountSettingId);
         public int GetActiveAccountsPerUserId(Guid userId);
 
-        public void ChangeAccountStatus(Guid accountId, AccountStatus newStatus);
+        public void AccountReview(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail);
 
         public Account GetAccountWithPositions(Guid id);
     }

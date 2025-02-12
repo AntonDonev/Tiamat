@@ -54,7 +54,17 @@ namespace Tiamat.Core.Services
                 _context.SaveChanges();
             }
         }
-
+        public void AccountReview(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail)
+        {
+            var account = _context.Accounts.FirstOrDefault(a => a.Id == accountId);
+            if (account != null)
+            {
+                account.VPSName = VPSName;
+                account.AdminEmail = AdminEmail;
+                account.Status = newStatus;
+                _context.SaveChanges();
+            }
+        }
         public IEnumerable<Account> FilterAccounts(string platform, AccountStatus? status, Guid? accountSettingId)
         {
             var query = _context.Accounts.AsQueryable();
@@ -69,16 +79,6 @@ namespace Tiamat.Core.Services
         public int GetActiveAccountsPerUserId(Guid userId)
         {
             return _context.Accounts.Where(x => x.UserId == userId && x.Status == AccountStatus.Active).Count();
-        }
-
-        public void ChangeAccountStatus(Guid accountId, AccountStatus newStatus)
-        {
-            var account = _context.Accounts.FirstOrDefault(a => a.Id == accountId);
-            if (account != null)
-            {
-                account.Status = newStatus;
-                _context.SaveChanges();
-            }
         }
 
         public Account GetAccountWithPositions(Guid id)

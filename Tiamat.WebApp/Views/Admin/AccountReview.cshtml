@@ -22,12 +22,17 @@
 <div class="account-list-container">
     <h1 class="list-title">Pending Accounts</h1>
 
+
     <div class="accounts-card">
-        <div class="accounts-card-header">
+        <div class="accounts-card-header d-flex justify-content-between align-items-center">
             <h2>Review Pending</h2>
+            <button class="btn btn-secondary" id="toggleListButton">
+                Toggle Pending Accounts
+            </button>
         </div>
 
         <div class="accounts-card-body">
+
             @if (!Model.Any())
             {
                 <div class="no-accounts">No pending accounts found.</div>
@@ -39,33 +44,30 @@
                         <thead>
                             <tr>
                                 <th>Name</th>
-                                <th>Initial Capital</th>
-                                <th>Current Capital</th>
                                 <th>Platform</th>
-                                <th>Account Setting</th>
+                                <th>Broker Server</th>
+                                <th>Broker Login</th>
+                                <th>Broker Password</th>
                                 <th>Created At</th>
-                                <th>Status</th>
                                 <th class="action-cell">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="pendingAccountsTbody">
                             @foreach (var account in Model)
                             {
                                 <tr>
                                     <td>@account.AccountName</td>
-                                    <td>@account.InitialCapital</td>
-                                    <td>@account.CurrentCapital</td>
                                     <td>@account.Platform</td>
-                                    <td>@(account.AccountSetting?.SettingName ?? "N/A")</td>
-                                    <td>@account.CreatedAt.ToShortDateString()</td>
+                                    <td>@account.BrokerServer</td>
+                                    <td>@account.BrokerLogin</td>
                                     <td>
-                                        <span class="@GetStatusClass(account.Status.ToString())">
-                                            @account.Status
+                                        <span class="broker-password masked"
+                                              data-password="@account.BrokerPassword">
+                                            [CENSORED]
                                         </span>
                                     </td>
+                                    <td>@account.CreatedAt.ToShortDateString()</td>
                                     <td class="action-cell">
-
-                                        <!-- ACCEPT button: opens the ACCEPT MODAL -->
                                         <button type="button"
                                                 class="btn-action btn-approve"
                                                 data-bs-toggle="modal"
@@ -73,8 +75,6 @@
                                                 data-bs-accountid="@account.Id">
                                             Accept
                                         </button>
-
-                                        <!-- DENY button: opens the DENY MODAL -->
                                         <button type="button"
                                                 class="btn-action btn-deny"
                                                 data-bs-toggle="modal"
@@ -88,12 +88,17 @@
                         </tbody>
                     </table>
                 </div>
+                <!-- This message shows when the list is toggled "off" -->
+                <div id="toggledMessage"
+                     style="display: none; margin-top: 1rem; font-style: italic;">
+                    The pending accounts list is currently toggled off.
+                </div>
             }
         </div>
     </div>
 </div>
 
-<!-- DENY MODAL -->
+<!-- Deny Modal -->
 <div class="modal fade"
      id="denyNotifyModal"
      tabindex="-1"
@@ -103,19 +108,22 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="denyNotifyModalLabel">Application Denied</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="denyNotifyForm"
                       asp-action="DenyAccountWithNotification"
                       asp-controller="Admin"
                       method="post">
-                    
+
                     <input type="hidden" name="Id" id="denyAccountIdHidden" />
                     <input type="hidden" name="Title" value="Application Denied" />
 
                     <div class="mb-3">
-                        <label for="notificationMessage" class="form-label fw-bold">Reason / Message</label>
+                        <label for="notificationMessage" class="form-label fw-bold">
+                            Reason / Message
+                        </label>
                         <textarea class="form-control"
                                   id="notificationMessage"
                                   name="Message"
@@ -148,7 +156,6 @@
     </div>
 </div>
 
-<!-- ACCEPT MODAL -->
 <div class="modal fade"
      id="acceptNotifyModal"
      tabindex="-1"
@@ -158,14 +165,15 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="acceptNotifyModalLabel">Application Approved</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="acceptNotifyForm"
                       asp-action="ApproveAccount"
                       asp-controller="Admin"
                       method="post">
-                    
+
                     <input type="hidden" name="Id" id="acceptAccountIdHidden" />
                     <input type="hidden" name="Title" value="Application Accepted" />
 
@@ -205,44 +213,75 @@
 
 @section Scripts {
     <script>
-        // DENY modal
-        var denyNotifyModal = document.getElementById('denyNotifyModal');
-        denyNotifyModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget;
-            var accountId = button.getAttribute('data-bs-accountid');
-            document.getElementById('denyAccountIdHidden').value = accountId;
+        // Show/hide broker password on click
+        document.addEventListener('DOMContentLoaded', function () {
+            var passwordEls = document.querySelectorAll('.broker-password');
+            passwordEls.forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var realPwd = el.getAttribute('data-password');
+                    if (el.classList.contains('masked')) {
+                        el.classList.remove('masked');
+                        el.classList.add('unmasked');
+                        el.textContent = realPwd;
+                    } else {
+                        el.classList.remove('unmasked');
+                        el.classList.add('masked');
+                        el.textContent = "[CENSORED]";
+                    }
+                });
+            });
 
-            document.getElementById('notificationMessage').value = "";
-            document.getElementById('useDefaultDenyMessage').checked = false;
-        });
+            // Deny modal
+            var denyNotifyModal = document.getElementById('denyNotifyModal');
+            denyNotifyModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var accountId = button.getAttribute('data-bs-accountid');
+                document.getElementById('denyAccountIdHidden').value = accountId;
+                document.getElementById('notificationMessage').value = "";
+                document.getElementById('useDefaultDenyMessage').checked = false;
+            });
+            document.getElementById('useDefaultDenyMessage').addEventListener('change', function () {
+                var messageArea = document.getElementById('notificationMessage');
+                if (this.checked) {
+                    messageArea.value = "After careful consideration, we regret to inform you that your application has been denied. We appreciate your interest, and if you have any questions or would like to reapply in the future, please do not hesitate to contact our support team.";
+                } else {
+                    messageArea.value = "";
+                }
+            });
 
-        document.getElementById('useDefaultDenyMessage').addEventListener('change', function () {
-            var messageArea = document.getElementById('notificationMessage');
-            if (this.checked) {
-                messageArea.value = "After careful consideration, we regret to inform you that your application has been denied. We appreciate your interest, and if you have any questions or would like to reapply in the future, please do not hesitate to contact our support team.";
-            } else {
-                messageArea.value = "";
-            }
-        });
+            // Accept modal
+            var acceptNotifyModal = document.getElementById('acceptNotifyModal');
+            acceptNotifyModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var accountId = button.getAttribute('data-bs-accountid');
+                document.getElementById('acceptAccountIdHidden').value = accountId;
+                document.getElementById('acceptMessage').value = "";
+                document.getElementById('useDefaultAcceptMessage').checked = false;
+            });
+            document.getElementById('useDefaultAcceptMessage').addEventListener('change', function () {
+                var messageArea = document.getElementById('acceptMessage');
+                if (this.checked) {
+                    messageArea.value = "Your account has been approved! Welcome on board. We appreciate your trust in our platform and look forward to supporting you.";
+                } else {
+                    messageArea.value = "";
+                }
+            });
 
-        // ACCEPT modal
-        var acceptNotifyModal = document.getElementById('acceptNotifyModal');
-        acceptNotifyModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget;
-            var accountId = button.getAttribute('data-bs-accountid');
-            document.getElementById('acceptAccountIdHidden').value = accountId;
+            var toggleButton = document.getElementById('toggleListButton');
+            var tbody = document.getElementById('pendingAccountsTbody');
+            var originalTbodyHTML = tbody ? tbody.innerHTML : "";
+            var toggledMsg = document.getElementById('toggledMessage');
 
-            document.getElementById('acceptMessage').value = "";
-            document.getElementById('useDefaultAcceptMessage').checked = false;
-        });
+            toggleButton.addEventListener('click', function () {
 
-        document.getElementById('useDefaultAcceptMessage').addEventListener('change', function () {
-            var messageArea = document.getElementById('acceptMessage');
-            if (this.checked) {
-                messageArea.value = "Your account has been approved! Welcome on board. We appreciate your trust in our platform and look forward to supporting you.";
-            } else {
-                messageArea.value = "";
-            }
+                if (tbody.innerHTML.trim() !== "") {
+                    tbody.innerHTML = "";
+                    toggledMsg.style.display = "block";
+                } else {
+                    tbody.innerHTML = originalTbodyHTML;
+                    toggledMsg.style.display = "none";
+                }
+            });
         });
     </script>
 }

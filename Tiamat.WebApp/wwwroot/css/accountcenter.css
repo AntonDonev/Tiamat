@@ -236,3 +236,47 @@
     backdrop-filter: blur(4px);
     background-color: rgba(0, 0, 0, 0.5) !important;
 }
+
+.broker-password {
+    cursor: pointer;
+    position: relative;
+    transition: color 0.3s ease-in-out;
+}
+
+    .broker-password.masked {
+        color: #999; 
+        cursor: pointer; 
+    }
+
+    .broker-password.unmasked {
+        color: #fff;
+        cursor: pointer;
+    }
+
+.btn-action.btn-approve {
+    background-color: rgba(0, 128, 0, 0.7);
+    border: none;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+    .btn-action.btn-approve:hover {
+        background-color: rgba(0, 128, 0, 0.9);
+    }
+
+.btn-action.btn-deny {
+    background-color: rgba(255, 0, 0, 0.7);
+    border: none;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+    .btn-action.btn-deny:hover {
+        background-color: rgba(255, 0, 0, 0.9);
+    }

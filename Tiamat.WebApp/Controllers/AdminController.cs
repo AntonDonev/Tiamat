@@ -69,7 +69,7 @@ namespace Tiamat.WebApp.Controllers
 
 
         [HttpGet]
-        public IActionResult Panel()
+        public IActionResult AccountReview()
         {
             var pendingAccounts = _accountService.GetAllAccounts()
                                    .Where(a => a.Status == AccountStatus.Pending)
@@ -81,7 +81,7 @@ namespace Tiamat.WebApp.Controllers
         [HttpPost]
         public IActionResult ApproveAccount(Guid id, string title, string message, bool useDefaultMessage)
         {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Active);
+            _accountService.AccountReview(AccountStatus.Active, id, "asd", "asd");
 
             if (useDefaultMessage)
             {
@@ -97,13 +97,14 @@ namespace Tiamat.WebApp.Controllers
             List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
             _notificationService.CreateNotification(notification, target);
 
-            return RedirectToAction(nameof(Panel));
+            return RedirectToAction(nameof(AccountReview));
         }
 
         [HttpPost]
         public IActionResult DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
         {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
+            _accountService.AccountReview(AccountStatus.Active, id, "asd", "asd");
+
 
             if (useDefaultDenyMessage)
             {
@@ -118,7 +119,7 @@ namespace Tiamat.WebApp.Controllers
             List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
             _notificationService.CreateNotification(notification, target);
 
-            return RedirectToAction(nameof(Panel));
+            return RedirectToAction(nameof(AccountReview));
         }
     }
 }

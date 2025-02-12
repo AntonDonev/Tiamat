@@ -23,317 +23,352 @@
         .notification-item {
             text-decoration: none;
         }
-        .notification-item:not(.notification-read) {
-            font-weight: bold;
+
+            .notification-item:not(.notification-read) {
+                font-weight: bold;
+            }
+
+                .notification-item:not(.notification-read):hover {
+                    text-decoration: underline;
+                }
+
+            .notification-item.notification-read {
+                font-weight: normal;
+                text-decoration: line-through;
+            }
+
+                .notification-item.notification-read:hover {
+                    text-decoration: line-through;
+                }
+
+        .dropdown-menu {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
         }
-        .notification-item:not(.notification-read):hover {
-            text-decoration: underline;
+
+        .show > .dropdown-menu {
+            opacity: 1;
+            transform: translateY(0);
         }
-        .notification-item.notification-read {
-            font-weight: normal;
-            text-decoration: line-through;
-        }
-        .notification-item.notification-read:hover {
-            text-decoration: line-through;
+        .nav-item.dropdown:hover .dropdown-menu {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100 text-white">
-@{
-    var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    Guid? userId = null;
-    if (!string.IsNullOrWhiteSpace(userIdString))
-    {
-        userId = Guid.Parse(userIdString);
+    @{
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? userId = null;
+        if (!string.IsNullOrWhiteSpace(userIdString))
+        {
+            userId = Guid.Parse(userIdString);
+        }
+
+        var userName = User.Identity?.Name;
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "No Role";
+
+        var activeAccountsCount = 0;
+        if (userId.HasValue)
+        {
+            activeAccountsCount = accountService.GetActiveAccountsPerUserId(userId.Value);
+        }
+
+        var userNotifications = new List<NotificationUser>();
+        if (userId.HasValue)
+        {
+            userNotifications = notificationService.GetUserNotificationsUser(userId).ToList();
+        }
+        var totalUnreadCount = userNotifications.Count(nu => !nu.IsRead);
     }
-
-    var userName = User.Identity?.Name;
-    var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "No Role";
-
-    var activeAccountsCount = 0;
-    if (userId.HasValue)
-    {
-        activeAccountsCount = accountService.GetActiveAccountsPerUserId(userId.Value);
-    }
-
-
-    var userNotifications = new List<NotificationUser>();
-
-    if (userId.HasValue)
-    {
-        userNotifications = notificationService.GetUserNotificationsUser(userId).ToList();
-    }
-
-    var totalUnreadCount = userNotifications.Count(nu => !nu.IsRead);
-}
-<div class="container-fluid">
-    <div class="row flex-nowrap">
-        <nav class="bg-dark d-flex flex-column align-items-start justify-content-between
+    <div class="container-fluid">
+        <div class="row flex-nowrap">
+            <nav class="bg-dark d-flex flex-column align-items-start justify-content-between
                    border-end border-secondary sidebar">
-            <div class="text-center mb-3" style="width:100%;">
-                <a asp-controller="Home" asp-action="Index" id="logo">
-                    <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" />
-                    <div class="sidebar-text" style="font-weight:600; margin-top:0.6rem;">
-                        Tiamat Fund
-                    </div>
-                </a>
-            </div>
-
-            <ul class="nav flex-column w-100" style="gap: 0.6rem;">
-                <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" 
-                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard") 
-                                                     ? "active" : "")">
-                    <a class="nav-link"
-                       asp-controller="User"
-                       asp-action="Dashboard"
-                       id="home-link">
-                        <i class="bi bi-speedometer2"></i>
-                        <span class="sidebar-text">Dashboard</span>
+                <div class="text-center mb-3" style="width:100%;">
+                    <a asp-controller="Home" asp-action="Index" id="logo">
+                        <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" />
+                        <div class="sidebar-text" style="font-weight:600; margin-top:0.6rem;">
+                            Tiamat Fund
+                        </div>
                     </a>
-                </li>
+                </div>
 
-                <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" 
-                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "AccountCenter") 
+                <ul class="nav flex-column w-100" style="gap: 0.6rem;">
+                    <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User"
+                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard")
                                                      ? "active" : "")">
-                    <a class="nav-link"
-                       asp-controller="User"
-                       asp-action="AccountCenter"
-                       id="about-link">
-                        <i class="bi bi-person-circle"></i>
-                        <span class="sidebar-text">Account Center</span>
-                    </a>
-                </li>
-
-                <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" 
-                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "Settings") 
-                                                     ? "active" : "")">
-                    <a class="nav-link"
-                       asp-controller="User"
-                       asp-action="Settings"
-                       id="settings-link">
-                        <i class="bi bi-gear"></i>
-                        <span class="sidebar-text">Settings</span>
-                    </a>
-                </li>
-
-                @if (userRole == "admin")
-                {
-                    <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" 
-                                                          && ViewContext.RouteData.Values["action"]?.ToString() == "Panel") 
-                                                         ? "active" : "")">
                         <a class="nav-link"
-                           asp-controller="Admin"
-                           asp-action="Panel"
-                           id="admin-link">
-                            <i class="bi bi-shield-lock"></i>
-                            <span class="sidebar-text">Admin Panel</span>
+                           asp-controller="User"
+                           asp-action="Dashboard"
+                           id="home-link">
+                            <i class="bi bi-speedometer2"></i>
+                            <span class="sidebar-text">Dashboard</span>
                         </a>
                     </li>
-                }
-            </ul>
 
-            <ul class="nav flex-column w-100 mt-3" style="gap: 0.6rem;">
-                <li class="nav-item custom-nav-item">
-                    <form asp-controller="User" asp-action="Logout" method="post" class="m-0">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn nav-link p-0" style="border: none; background: none;">
-                            <i class="bi bi-box-arrow-right"></i>
-                            <span class="sidebar-text">Log Out</span>
-                        </button>
-                    </form>
-                </li>
-            </ul>
+                    <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User"
+                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "AccountCenter")
+                                                     ? "active" : "")">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="AccountCenter"
+                           id="about-link">
+                            <i class="bi bi-person-circle"></i>
+                            <span class="sidebar-text">Account Center</span>
+                        </a>
+                    </li>
 
-            <div class="sidebar-footer">
-                © 2025 - Tiamat.WebApp -
-                <a href="#" class="text-white">Privacy</a>
-            </div>
-        </nav>
+                    <li class="nav-item custom-nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User"
+                                                      && ViewContext.RouteData.Values["action"]?.ToString() == "Settings")
+                                                     ? "active" : "")">
+                        <a class="nav-link"
+                           asp-controller="User"
+                           asp-action="Settings"
+                           id="settings-link">
+                            <i class="bi bi-gear"></i>
+                            <span class="sidebar-text">Settings</span>
+                        </a>
+                    </li>
 
-        <div class="col px-0">
-            <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
-                <span>Active Accounts: @activeAccountsCount</span>
-                <span>Weekly Change: []</span>
-                <span>
-                    @userName
-                    <sub class="ms-1 text-info" style="font-size:0.8rem">
-                        (@userRole)
-                    </sub>
-                </span>
-
-                <span class="ms-4" style="cursor: pointer;"
-                      data-bs-toggle="modal" data-bs-target="#notificationModal">
-                    <i class="bi bi-bell" style="font-size:1.3rem;"></i>
-                    @if (totalUnreadCount > 0)
+                    @if (userRole == "admin")
                     {
-                        <span class="badge bg-danger">@totalUnreadCount</span>
+                        <li class="nav-item dropdown custom-nav-item
+                        @((ViewContext.RouteData.Values["controller"]?.ToString() == "Admin"
+                           && ViewContext.RouteData.Values["action"]?.ToString() == "Panel") ? "active" : "")">
+
+                            <a class="nav-link dropdown-toggle"
+                               href="#"
+                               id="adminDropdown"
+                               role="button"
+                               aria-expanded="false">
+                                <i class="bi bi-shield-lock"></i>
+                                <span class="sidebar-text">Admin Panel</span>
+                            </a>
+
+                            <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="adminDropdown">
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Admin" asp-action="UserCenter">
+                                        User Center
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Admin" asp-action="Notification">
+                                        Notification
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" asp-controller="Admin" asp-action="AccountReview">
+                                        Account Review
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                     }
-                </span>
-            </div>
+                </ul>
 
-            <main class="p-4">
-                @RenderBody()
-            </main>
-        </div>
-    </div>
-</div>
+                <ul class="nav flex-column w-100 mt-3" style="gap: 0.6rem;">
+                    <li class="nav-item custom-nav-item">
+                        <form asp-controller="User" asp-action="Logout" method="post" class="m-0">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn nav-link p-0" style="border: none; background: none;">
+                                <i class="bi bi-box-arrow-right"></i>
+                                <span class="sidebar-text">Log Out</span>
+                            </button>
+                        </form>
+                    </li>
+                </ul>
 
-<div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
-        <div class="modal-content bg-dark text-white">
-            <div class="modal-header border-secondary">
-                <h5 class="modal-title" id="notificationModalLabel">Notifications</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+                <div class="sidebar-footer">
+                    © 2025 - Tiamat.WebApp -
+                    <a href="#" class="text-white">Privacy</a>
+                </div>
+            </nav>
 
-            <div class="modal-body">
+            <div class="col px-0">
+                <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
+                    <span>Active Accounts: @activeAccountsCount</span>
+                    <span>Weekly Change: []</span>
+                    <span>
+                        @userName
+                        <sub class="ms-1 text-info" style="font-size:0.8rem">
+                            (@userRole)
+                        </sub>
+                    </span>
 
-                <div id="notificationListContainer">
-                    @if (userNotifications.Any())
-                    {
-                        @foreach (var userNotif in userNotifications)
+                    <span class="ms-4" style="cursor: pointer;"
+                          data-bs-toggle="modal" data-bs-target="#notificationModal">
+                        <i class="bi bi-bell" style="font-size:1.3rem;"></i>
+                        @if (totalUnreadCount > 0)
                         {
-                            var note = userNotif.Notification; 
-                            <div class="border-bottom border-secondary py-2">
-                                <a href="#"
-                                   class="notification-item text-white @(userNotif.IsRead ? "notification-read" : "")"
-                                   data-id="@note.Id"
-                                   data-title="@note.Title"
-                                   data-description="@note.Description"
-                                   data-datetime="@note.DateTime.ToLocalTime().ToString("g")"
-                                   data-isread="@userNotif.IsRead">
-                                    @note.Title
-                                </a>
-                                <div style="font-size:0.8rem;">
-                                    @note.DateTime.ToLocalTime().ToString("g")
-                                </div>
-                            </div>
+                            <span class="badge bg-danger">@totalUnreadCount</span>
                         }
-                    }
-                    else
-                    {
-                        <p>No notifications found.</p>
-                    }
+                    </span>
                 </div>
 
-                <div id="notificationDetailContainer" style="display:none;">
-                    <h5 id="detailTitle"></h5>
-                    <div id="detailDescription" class="mt-2"></div>
-                    <div id="detailDate" class="text-muted" style="font-size:0.85rem;"></div>
-
-                    <form asp-controller="User"
-                          asp-action="MarkNotificationAsRead"    
-                          method="post"
-                          id="markSingleForm"
-                          class="mt-3">
-                        @Html.AntiForgeryToken()
-
-                        <input type="hidden" name="notificationId" id="hiddenNotificationId" />
-
-                        <button type="submit" class="btn btn-success">Mark as Read</button>
-                        <button type="button" class="btn btn-secondary" id="backToListBtn">Back</button>
-                    </form>
-                </div>
-
-            </div>
-
-            <div class="modal-footer border-secondary">
-                <form asp-controller="User" asp-action="MarkAllAsRead" method="post" class="m-0">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-secondary">Mark All as Read</button>
-                </form>
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                <main class="p-4">
+                    @RenderBody()
+                </main>
             </div>
         </div>
     </div>
-</div>
+
+    <div class="modal fade" id="notificationModal" tabindex="-1" aria-labelledby="notificationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="notificationModalLabel">Notifications</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div id="notificationListContainer">
+                        @if (userNotifications.Any())
+                        {
+                            @foreach (var userNotif in userNotifications)
+                            {
+                                var note = userNotif.Notification;
+                                <div class="border-bottom border-secondary py-2">
+                                    <a href="#"
+                                       class="notification-item text-white @(userNotif.IsRead ? "notification-read" : "")"
+                                       data-id="@note.Id"
+                                       data-title="@note.Title"
+                                       data-description="@note.Description"
+                                       data-datetime="@note.DateTime.ToLocalTime().ToString("g")"
+                                       data-isread="@userNotif.IsRead">
+                                        @note.Title
+                                    </a>
+                                    <div style="font-size:0.8rem;">
+                                        @note.DateTime.ToLocalTime().ToString("g")
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p>No notifications found.</p>
+                        }
+                    </div>
+
+                    <div id="notificationDetailContainer" style="display:none;">
+                        <h5 id="detailTitle"></h5>
+                        <div id="detailDescription" class="mt-2"></div>
+                        <div id="detailDate" class="text-muted" style="font-size:0.85rem;"></div>
+
+                        <form asp-controller="User"
+                              asp-action="MarkNotificationAsRead"
+                              method="post"
+                              id="markSingleForm"
+                              class="mt-3">
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden" name="notificationId" id="hiddenNotificationId" />
+
+                            <button type="submit" class="btn btn-success">Mark as Read</button>
+                            <button type="button" class="btn btn-secondary" id="backToListBtn">Back</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-secondary">
+                    <form asp-controller="User" asp-action="MarkAllAsRead" method="post" class="m-0">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-secondary">Mark All as Read</button>
+                    </form>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="~/lib/iziToast/js/iziToast.min.js"></script>
-<script src="~/lib/jquery/dist/jquery.min.js"></script>
-<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
 
-        const navbarLinks = document.querySelectorAll(".nav-link");
-        navbarLinks.forEach(link => {
-            link.addEventListener("mousedown", function () {
-                this.style.transform = "scale(0.97)";
+            const navbarLinks = document.querySelectorAll(".nav-link");
+            navbarLinks.forEach(link => {
+                link.addEventListener("mousedown", function () {
+                    this.style.transform = "scale(0.97)";
+                });
+                link.addEventListener("mouseup", function () {
+                    this.style.transform = "";
+                });
             });
-            link.addEventListener("mouseup", function () {
-                this.style.transform = "";
+
+            const listContainer = document.getElementById("notificationListContainer");
+            const detailContainer = document.getElementById("notificationDetailContainer");
+
+            const detailTitle = document.getElementById("detailTitle");
+            const detailDescription = document.getElementById("detailDescription");
+            const detailDate = document.getElementById("detailDate");
+            const hiddenNotificationId = document.getElementById("hiddenNotificationId");
+
+            document.querySelectorAll(".notification-item").forEach(item => {
+                item.addEventListener("click", function (e) {
+                    e.preventDefault();
+
+                    const notifId = this.dataset.id;
+                    const notifTitle = this.dataset.title;
+                    const notifDescription = this.dataset.description;
+                    const notifDateTime = this.dataset.datetime;
+
+                    detailTitle.textContent = notifTitle;
+                    detailDescription.textContent = notifDescription;
+                    detailDate.textContent = notifDateTime;
+                    hiddenNotificationId.value = notifId;
+
+                    listContainer.style.display = "none";
+                    detailContainer.style.display = "block";
+                });
             });
-        });
 
-        const listContainer = document.getElementById("notificationListContainer");
-        const detailContainer = document.getElementById("notificationDetailContainer");
+            document.getElementById("backToListBtn").addEventListener("click", function () {
+                detailContainer.style.display = "none";
+                listContainer.style.display = "block";
+            });
 
-        const detailTitle = document.getElementById("detailTitle");
-        const detailDescription = document.getElementById("detailDescription");
-        const detailDate = document.getElementById("detailDate");
-        const hiddenNotificationId = document.getElementById("hiddenNotificationId");
-
-        document.querySelectorAll(".notification-item").forEach(item => {
-            item.addEventListener("click", function (e) {
+            const markForm = document.getElementById("markSingleForm");
+            markForm.addEventListener("submit", function (e) {
                 e.preventDefault();
+                const formData = new FormData(markForm);
 
-                const notifId = this.dataset.id;
-                const notifTitle = this.dataset.title;
-                const notifDescription = this.dataset.description;
-                const notifDateTime = this.dataset.datetime;
+                fetch(markForm.action, {
+                    method: "POST",
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const badge = document.querySelector(".badge.bg-danger");
+                        if (badge) {
+                            badge.textContent = data.unreadCount;
+                            if (data.unreadCount === 0) {
+                                badge.style.display = "none";
+                            }
+                        }
 
-                detailTitle.textContent = notifTitle;
-                detailDescription.textContent = notifDescription;
-                detailDate.textContent = notifDateTime;
-                hiddenNotificationId.value = notifId;
+                        const notifId = formData.get("notificationId");
+                        const clickedItem = document.querySelector(`.notification-item[data-id='${notifId}']`);
+                        if (clickedItem) {
+                            clickedItem.classList.add("notification-read");
+                            clickedItem.dataset.isread = "true";
+                        }
 
-                listContainer.style.display = "none";
-                detailContainer.style.display = "block";
+                        detailContainer.style.display = "none";
+                        listContainer.style.display = "block";
+                    }
+                })
+                .catch(err => console.error("Error marking notification as read:", err));
             });
         });
+    </script>
 
-        document.getElementById("backToListBtn").addEventListener("click", function () {
-            detailContainer.style.display = "none";
-            listContainer.style.display = "block";
-        });
-
-        const markForm = document.getElementById("markSingleForm");
-        markForm.addEventListener("submit", function (e) {
-            e.preventDefault();
-            const formData = new FormData(markForm);
-
-            fetch(markForm.action, {
-                method: "POST",
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const badge = document.querySelector(".badge.bg-danger");
-                    if (badge) {
-                        badge.textContent = data.unreadCount;
-                        if (data.unreadCount === 0) {
-                            badge.style.display = "none";
-                        }
-                    }
-
-                    const notifId = formData.get("notificationId");
-                    const clickedItem = document.querySelector(`.notification-item[data-id='${notifId}']`);
-                    if (clickedItem) {
-                        clickedItem.classList.add("notification-read");
-                        clickedItem.dataset.isread = "true";
-                    }
-
-                    detailContainer.style.display = "none";
-                    listContainer.style.display = "block";
-                }
-            })
-            .catch(err => console.error("Error marking notification as read:", err));
-        });
-    });
-</script>
-
-@RenderSection("Scripts", required: false)
-@Html.Partial("_iziToastPartial")
+    @RenderSection("Scripts", required: false)
+    @Html.Partial("_iziToastPartial")
 
 </body>
 </html>
