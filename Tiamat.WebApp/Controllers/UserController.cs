@@ -239,38 +239,6 @@ namespace Tiamat.WebApp.Controllers
             return View("Settings", vm);
         }
 
-        [HttpGet]
-        public IActionResult AdminPanel()
-        {
-            var pendingAccounts = _accountService.GetAllAccounts()
-                                   .Where(a => a.Status == AccountStatus.Pending)
-                                   .ToList();
-
-            return View(pendingAccounts);
-        }
-
-        [HttpPost]
-        public IActionResult ApproveAccount(Guid id, string title, string message, bool useDefaultMessage)
-        {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Active);
-
-            if (useDefaultMessage)
-            {
-                message = "Your account has been accepted...";
-            }
-
-
-            Notification notification = new Notification();
-            notification.Id = Guid.NewGuid();
-            notification.Title = title;
-            notification.Description = message;
-            notification.DateTime = DateTime.Now;
-            List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
-            _notificationService.CreateNotification(notification, target);
-
-            return RedirectToAction(nameof(AdminPanel));
-        }
-
         [HttpPost]
         [ValidateAntiForgeryToken]
         public IActionResult MarkNotificationAsRead(Guid notificationId)
@@ -309,27 +277,6 @@ namespace Tiamat.WebApp.Controllers
             return Json(new { success = true, unreadCount = newCount });
         }
 
-        [HttpPost]
-        public IActionResult DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
-        {
-            _accountService.ChangeAccountStatus(id, AccountStatus.Failed);
-
-            if (useDefaultDenyMessage)
-            {
-                message = "After careful consideration, we regret to inform you...";
-            }
-
-            Notification notification = new Notification();
-            notification.Id = Guid.NewGuid();
-            notification.Title = title;
-            notification.Description = message;
-            notification.DateTime = DateTime.Now;
-            List<Guid> target = new List<Guid> { _accountService.GetAccountById(id).UserId };
-            _notificationService.CreateNotification(notification, target);
-
-            return RedirectToAction(nameof(AdminPanel));
-        }
-
         [Authorize]
         [HttpGet]
         public IActionResult AddAccountSetting()
@@ -343,6 +290,9 @@ namespace Tiamat.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
+                //TempData["AlertMessage"] = "Account created successfully!";
+                //TempData["AlertTitle"] = "Success";
+                //TempData["AlertType"] = "success";
                 return View(vm);
             }
             var setting = new AccountSetting
@@ -354,6 +304,9 @@ namespace Tiamat.WebApp.Controllers
                 UserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
             };
             _accountSettingService.CreateSetting(setting);
+            TempData["AlertMessage"] = "Account created successfully!";
+            TempData["AlertTitle"] = "Success";
+            TempData["AlertType"] = "success";
             return RedirectToAction(nameof(Settings));
         }
 
