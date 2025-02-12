@@ -10,6 +10,7 @@
     <meta charset="utf-8" />
     <title>@ViewData["Title"]</title>
 
+    <link rel="stylesheet" href="~/lib/iziToast/css/iziToast.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.3/cyborg/bootstrap.min.css" />
@@ -121,8 +122,8 @@
                                                           && ViewContext.RouteData.Values["action"]?.ToString() == "Panel") 
                                                          ? "active" : "")">
                         <a class="nav-link"
-                           asp-controller="User"
-                           asp-action="AdminPanel"
+                           asp-controller="Admin"
+                           asp-action="Panel"
                            id="admin-link">
                             <i class="bi bi-shield-lock"></i>
                             <span class="sidebar-text">Admin Panel</span>
@@ -247,6 +248,7 @@
     </div>
 </div>
 
+    <script src="~/lib/iziToast/js/iziToast.min.js"></script>
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -331,5 +333,7 @@
 </script>
 
 @RenderSection("Scripts", required: false)
+@Html.Partial("_iziToastPartial")
+
 </body>
 </html>

@@ -45,10 +45,17 @@ namespace Tiamat.WebApp.Controllers
             var result = await _signInManager.PasswordSignInAsync(username, password, false, false);
             if (result.Succeeded)
             {
+                TempData["AlertMessage"] = "User logged in successfully!";
+                TempData["AlertTitle"] = "Success";
+                TempData["AlertType"] = "success";
                 return RedirectToAction("Index", "Home");
             }
 
-            ModelState.AddModelError("", "Invalid login attempt.");
+
+            TempData["AlertMessage"] = "Invalid login attempt. Please check your credentials.";
+            TempData["AlertTitle"] = "Login Error";
+            TempData["AlertType"] = "error";
+
             return View();
         }
 
@@ -114,13 +121,24 @@ namespace Tiamat.WebApp.Controllers
         [HttpPost]
         public IActionResult ViewAccount(ViewAccountViewModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                ViewBag.AccountSettings = _accountSettingService.GetSettingsForUser(Guid.Empty).ToList();
-                return View(model);
-            }
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
 
-            var account = _accountService.GetAccountById(model.AccountId);
+                    var combinedErrors = string.Join("; ", errors);
+
+                    TempData["AlertMessage"] = "Failed to create account setting: " + combinedErrors;
+                    TempData["AlertTitle"] = "Validation Error";
+                    TempData["AlertType"] = "error";
+                    ViewBag.AccountSettings = _accountSettingService.GetSettingsForUser(Guid.Empty).ToList();
+
+                    return View(model);
+                }
+
+                var account = _accountService.GetAccountById(model.AccountId);
             if (account == null) return NotFound();
 
             account.AccountName = model.AccountName;
@@ -290,9 +308,17 @@ namespace Tiamat.WebApp.Controllers
         {
             if (!ModelState.IsValid)
             {
-                //TempData["AlertMessage"] = "Account created successfully!";
-                //TempData["AlertTitle"] = "Success";
-                //TempData["AlertType"] = "success";
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                var combinedErrors = string.Join("; ", errors);
+
+                TempData["AlertMessage"] = "Failed to create account setting: " + combinedErrors;
+                TempData["AlertTitle"] = "Validation Error";
+                TempData["AlertType"] = "error";  
+
                 return View(vm);
             }
             var setting = new AccountSetting

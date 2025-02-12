@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Tiamat.WebApp</title>
 
+
+    <link rel="stylesheet" href="~/lib/iziToast/css/iziToast.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.3/cyborg/bootstrap.min.css" />
 
@@ -69,6 +71,7 @@
         </div>
     </footer>
 
+    <script src="~/lib/iziToast/js/iziToast.min.js"></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -111,5 +114,7 @@
     </script>
 
     @RenderSection("Scripts", required: false)
+    @Html.Partial("_iziToastPartial")
+
 </body>
 </html>
