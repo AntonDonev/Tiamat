@@ -1,4 +1,3 @@
-// SignalProvider.cpp
 
 #include "pch.h"
 #include <winsock2.h>
@@ -12,14 +11,13 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-static std::string g_lastMessage;
-static std::mutex  g_messageMutex;
+static std::string       g_lastMessage;
+static std::mutex        g_messageMutex;
 static std::atomic<bool> g_running{ true };
-static SOCKET g_socket = INVALID_SOCKET;
-static std::thread g_recvThread;
+static SOCKET            g_socket = INVALID_SOCKET;
+static std::thread       g_recvThread;
 
 void recvLoop();
-
 
 BOOL APIENTRY DllMain(HMODULE hModule,
     DWORD  ul_reason_for_call,
@@ -31,43 +29,15 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     {
         WSADATA wsa;
         if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
-        {
-            return FALSE; // fail
-        }
-
-        sockaddr_in server;
-        server.sin_family = AF_INET;
-        server.sin_port = htons(12345); // must match Python server's port
-
-        if (InetPton(AF_INET, L"34.163.5.184", &server.sin_addr) != 1)
-        {
-            WSACleanup();
             return FALSE;
-        }
 
-        g_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (g_socket == INVALID_SOCKET)
-        {
-            WSACleanup();
-            return FALSE;
-        }
+        g_running = true;
+        g_recvThread = std::thread(recvLoop);
 
-        int res = connect(g_socket, (struct sockaddr*)&server, sizeof(server));
-        if (res < 0)
-        {
-            closesocket(g_socket);
-            g_socket = INVALID_SOCKET;
-        }
-        else
-        {
-            // Start receive thread
-            g_running = true;
-            g_recvThread = std::thread(recvLoop);
-        }
+        break;
     }
-    break;
-
     case DLL_PROCESS_DETACH:
+    {
         g_running = false;
         if (g_recvThread.joinable())
             g_recvThread.join();
@@ -77,23 +47,66 @@ BOOL APIENTRY DllMain(HMODULE hModule,
             closesocket(g_socket);
             g_socket = INVALID_SOCKET;
         }
+
         WSACleanup();
         break;
     }
-
+    }
     return TRUE;
 }
 
-// Continuously receive data from the server
 void recvLoop()
 {
-    char buffer[1024];
+    const wchar_t* kServerIP = L"34.60.210.127";
+    const unsigned int kServerPort = 12345;
+
+    char buffer[1024] = { 0 };
+
+    DWORD lastConnectAttempt = 0;
+
     while (g_running)
     {
         if (g_socket == INVALID_SOCKET)
         {
-            Sleep(100);
-            continue;
+            DWORD now = GetTickCount();
+            if (now - lastConnectAttempt >= 60000)
+            {
+                lastConnectAttempt = now;
+
+                SOCKET tempSocket = socket(AF_INET, SOCK_STREAM, 0);
+                if (tempSocket == INVALID_SOCKET)
+                {
+                    Sleep(1000);
+                    continue;
+                }
+
+                sockaddr_in server;
+                server.sin_family = AF_INET;
+                server.sin_port = htons(kServerPort);
+                if (InetPton(AF_INET, kServerIP, &server.sin_addr) != 1)
+                {
+                    closesocket(tempSocket);
+                    Sleep(60000);
+                    continue;
+                }
+
+                if (connect(tempSocket, (struct sockaddr*)&server, sizeof(server)) == 0)
+                {
+                    g_socket = tempSocket;
+                    std::cout << "[recvLoop] Connected to server.\n";
+                }
+                else
+                {
+                    closesocket(tempSocket);
+                    std::cout << "[recvLoop] Connect failed. Will retry in 1 minute.\n";
+                }
+            }
+
+            if (g_socket == INVALID_SOCKET)
+            {
+                Sleep(1000);
+                continue;
+            }
         }
 
         fd_set readfds;
@@ -102,7 +115,7 @@ void recvLoop()
 
         timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 200000; // 200ms
+        tv.tv_usec = 200000; 
 
         int sel = select(0, &readfds, NULL, NULL, &tv);
         if (sel > 0 && FD_ISSET(g_socket, &readfds))
@@ -112,6 +125,7 @@ void recvLoop()
             {
                 buffer[recvLen] = '\0';
                 std::string msg(buffer);
+
                 {
                     std::lock_guard<std::mutex> lock(g_messageMutex);
                     g_lastMessage = msg;
@@ -119,35 +133,69 @@ void recvLoop()
             }
             else if (recvLen == 0)
             {
-                // Server closed connection
-                break;
+                std::cout << "[recvLoop] Server closed connection.\n";
+                closesocket(g_socket);
+                g_socket = INVALID_SOCKET;
             }
             else
             {
-                // Socket error
                 int err = WSAGetLastError();
-                break;
+                std::cout << "[recvLoop] Recv error " << err << ". Closing socket.\n";
+                closesocket(g_socket);
+                g_socket = INVALID_SOCKET;
             }
         }
+
         Sleep(50);
     }
 }
 
-// Exported function for MQL (or other apps) to retrieve the latest message
 extern "C" __declspec(dllexport)
 const char* __stdcall DllGetMessage()
 {
     static thread_local std::string localCopy;
+
     {
         std::lock_guard<std::mutex> lock(g_messageMutex);
         localCopy = g_lastMessage;
-        // Clear so we don't return the same message
         g_lastMessage.clear();
     }
     return localCopy.c_str();
 }
 
-// Exported function for MQL (or other apps) to send a message to Python
+extern "C" __declspec(dllexport)
+const wchar_t* __stdcall DllGetMessageW()
+{
+    static thread_local std::wstring localCopyW;
+
+    std::string temp;
+    {
+        std::lock_guard<std::mutex> lock(g_messageMutex);
+        temp = g_lastMessage;
+        g_lastMessage.clear();
+    }
+
+    if (!temp.empty())
+    {
+        int needed = MultiByteToWideChar(CP_UTF8, 0, temp.c_str(), -1, nullptr, 0);
+        if (needed > 0)
+        {
+            localCopyW.resize(needed);
+            MultiByteToWideChar(CP_UTF8, 0, temp.c_str(), -1, &localCopyW[0], needed);
+        }
+        else
+        {
+            localCopyW = L"";
+        }
+    }
+    else
+    {
+        localCopyW = L"";
+    }
+
+    return localCopyW.c_str();
+}
+
 extern "C" __declspec(dllexport)
 void __stdcall SendMessageToServer(const char* msg)
 {
@@ -167,6 +215,4 @@ void CALLBACK RunDllEntry(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCm
         "SignalProvider",
         MB_OK
     );
-
 }
-
