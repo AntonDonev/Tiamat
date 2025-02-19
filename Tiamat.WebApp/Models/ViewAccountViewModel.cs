@@ -32,7 +32,7 @@ namespace Tiamat.WebApp.Models
         public string Symbol { get; set; }
         public decimal Size { get; set; }
         public decimal Risk { get; set; }
-        public decimal Result { get; set; }
+        public decimal? Result { get; set; }
         public DateTime OpenedAt { get; set; }
         public DateTime? ClosedAt { get; set; }
     }

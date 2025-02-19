@@ -11,20 +11,19 @@ namespace Tiamat.Models
     public class Position
     {
         public Position()
-        {
-            AccountPositions = new List<AccountPosition>();
+        { 
         }
-        public Position(string symbol, Account account, decimal size, decimal risk, decimal result, DateTime openedAt, DateTime? closedAt)
+        public Position(string symbol, Account account,string type, decimal size, decimal risk, decimal? result, DateTime openedAt, DateTime? closedAt)
         {
             Symbol = symbol;
             Account = account;
             AccountId = account.Id;
+            Type = type;
             Size = size;
             Risk = risk;
             Result = result;
             OpenedAt = openedAt;
             ClosedAt = closedAt;
-            AccountPositions = new List<AccountPosition>();
         }
 
         [Key]
@@ -33,10 +32,12 @@ namespace Tiamat.Models
         [Required]
         public string Symbol { get; set; }
 
+        [Required]
+        public string Type { get; set; }
+
         [ForeignKey(nameof(Account))]
         public Guid AccountId { get; set; }
         public Account Account { get; set; } 
-
 
         [Required]
         public decimal Size { get; set; } 
@@ -44,14 +45,13 @@ namespace Tiamat.Models
         [Required]
         public decimal Risk { get; set; } 
 
-        public decimal Result { get; set; } 
+        public decimal? Result { get; set; } 
 
         [Required]
         public DateTime OpenedAt { get; set; }
 
         public DateTime? ClosedAt { get; set; }
 
-        public virtual ICollection<AccountPosition> AccountPositions { get; set; }
 
     }
 }

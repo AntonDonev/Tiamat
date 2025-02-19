@@ -102,13 +102,13 @@ namespace Tiamat.WebApp.Controllers
                 LastUpdatedAt = account.LastUpdatedAt,
                 Positions = account.AccountPositions.Select(ap => new PositionViewModel
                 {
-                    PositionId = ap.Position.Id,
-                    Symbol = ap.Position.Symbol,
-                    Size = ap.Position.Size,
-                    Risk = ap.Position.Risk,
-                    Result = ap.Position.Result,
-                    OpenedAt = ap.Position.OpenedAt,
-                    ClosedAt = ap.Position.ClosedAt
+                    PositionId = ap.Id,
+                    Symbol = ap.Symbol,
+                    Size = ap.Size,
+                    Risk = ap.Risk,
+                    Result = ap.Result,
+                    OpenedAt = ap.OpenedAt,
+                    ClosedAt = ap.ClosedAt
                 }).ToList()
             };
 
@@ -446,6 +446,7 @@ namespace Tiamat.WebApp.Controllers
                 account.HighestCapital = account.InitialCapital;
                 account.LowestCapital = account.InitialCapital;
                 account.CurrentCapital = account.InitialCapital;
+                account.Affiliated_IP = null;
 
                 _accountService.CreateAccount(account);
 

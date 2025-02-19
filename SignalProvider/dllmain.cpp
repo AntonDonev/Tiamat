@@ -57,7 +57,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 
 void recvLoop()
 {
-    const wchar_t* kServerIP = L"34.60.210.127";
+    const wchar_t* kServerIP = L"34.174.186.157";
     const unsigned int kServerPort = 12345;
 
     char buffer[1024] = { 0 };

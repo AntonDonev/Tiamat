@@ -235,6 +235,7 @@ namespace Tiamat.DataAccess.Migrations
                     BrokerPassword = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     BrokerServer = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    Affiliated_IP = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     VPSName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     AdminEmail = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -263,10 +264,11 @@ namespace Tiamat.DataAccess.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Symbol = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Size = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Risk = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    Result = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Result = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     OpenedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ClosedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -280,46 +282,6 @@ namespace Tiamat.DataAccess.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateTable(
-                name: "AccountPositions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    PositionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Size = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    Risk = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    Result = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    OpenedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    ClosedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AccountPositions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AccountPositions_Accounts_AccountId",
-                        column: x => x.AccountId,
-                        principalTable: "Accounts",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AccountPositions_Positions_PositionId",
-                        column: x => x.PositionId,
-                        principalTable: "Positions",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AccountPositions_AccountId",
-                table: "AccountPositions",
-                column: "AccountId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AccountPositions_PositionId",
-                table: "AccountPositions",
-                column: "PositionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Accounts_AccountSettingsId",
@@ -389,9 +351,6 @@ namespace Tiamat.DataAccess.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "AccountPositions");
-
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 

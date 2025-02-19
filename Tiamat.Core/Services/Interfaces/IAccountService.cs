@@ -20,6 +20,9 @@ namespace Tiamat.Core.Services.Interfaces
 
         public void AccountReview(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail);
 
+        public IEnumerable<(Guid, string?)> AllAccounts();
+        public Account GetAccountByIp(string Ip);
+
         public Account GetAccountWithPositions(Guid id);
     }
 }

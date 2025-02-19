@@ -170,6 +170,9 @@ namespace Tiamat.DataAccess.Migrations
                     b.Property<string>("AdminEmail")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Affiliated_IP")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("BrokerLogin")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -229,45 +232,6 @@ namespace Tiamat.DataAccess.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Accounts");
-                });
-
-            modelBuilder.Entity("Tiamat.Models.AccountPosition", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("OpenedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("PositionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Result")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Risk")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Size")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("PositionId");
-
-                    b.ToTable("AccountPositions");
                 });
 
             modelBuilder.Entity("Tiamat.Models.AccountSetting", b =>
@@ -358,7 +322,7 @@ namespace Tiamat.DataAccess.Migrations
                     b.Property<DateTime>("OpenedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("Result")
+                    b.Property<decimal?>("Result")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Risk")
@@ -368,6 +332,10 @@ namespace Tiamat.DataAccess.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -514,25 +482,6 @@ namespace Tiamat.DataAccess.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Tiamat.Models.AccountPosition", b =>
-                {
-                    b.HasOne("Tiamat.Models.Account", "Account")
-                        .WithMany("AccountPositions")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Tiamat.Models.Position", "Position")
-                        .WithMany("AccountPositions")
-                        .HasForeignKey("PositionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Position");
-                });
-
             modelBuilder.Entity("Tiamat.Models.AccountSetting", b =>
                 {
                     b.HasOne("Tiamat.Models.User", "User")
@@ -565,7 +514,7 @@ namespace Tiamat.DataAccess.Migrations
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
                     b.HasOne("Tiamat.Models.Account", "Account")
-                        .WithMany()
+                        .WithMany("AccountPositions")
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -586,11 +535,6 @@ namespace Tiamat.DataAccess.Migrations
             modelBuilder.Entity("Tiamat.Models.Notification", b =>
                 {
                     b.Navigation("NotificationUsers");
-                });
-
-            modelBuilder.Entity("Tiamat.Models.Position", b =>
-                {
-                    b.Navigation("AccountPositions");
                 });
 
             modelBuilder.Entity("Tiamat.Models.User", b =>

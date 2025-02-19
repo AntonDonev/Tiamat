@@ -32,7 +32,10 @@ namespace Tiamat.Core.Services
                 .Include(a => a.AccountSetting)
                 .FirstOrDefault(a => a.Id == id);
         }
-
+        public Account GetAccountByIp(string Ip)
+        {
+            return _context.Accounts.FirstOrDefault(x => x.Affiliated_IP == Ip);
+        }
         public void CreateAccount(Account account)
         {
             _context.Accounts.Add(account);
@@ -76,6 +79,16 @@ namespace Tiamat.Core.Services
                 .ToList();
         }
 
+        public IEnumerable<(Guid, string?)> AllAccounts()
+        {
+            return _context.Accounts
+                .Where(x => x.Status == AccountStatus.Active)
+                .Select(x => new { x.Id, x.Affiliated_IP }) 
+                .AsEnumerable()                         
+                .Select(x => (x.Id, x.Affiliated_IP))      
+                .ToList();
+        }
+
         public int GetActiveAccountsPerUserId(Guid userId)
         {
             return _context.Accounts.Where(x => x.UserId == userId && x.Status == AccountStatus.Active).Count();
@@ -85,7 +98,6 @@ namespace Tiamat.Core.Services
         {
             return _context.Accounts
                 .Include(a => a.AccountPositions)
-                    .ThenInclude(ap => ap.Position)
                 .Include(a => a.AccountSetting)
                 .FirstOrDefault(a => a.Id == id);
         }

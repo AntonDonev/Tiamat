@@ -16,7 +16,6 @@ namespace Tiamat.DataAccess
         public DbSet<Account> Accounts { get; set; }
         public DbSet<AccountSetting> AccountSettings { get; set; }
         public DbSet<Position> Positions { get; set; }
-        public DbSet<AccountPosition> AccountPositions { get; set; }
 
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationUser> NotificationUsers { get; set; }
@@ -43,30 +42,6 @@ namespace Tiamat.DataAccess
                 .HasForeignKey(a => a.AccountSettingsId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<AccountPosition>()
-                .HasOne(ap => ap.Account)
-                .WithMany(a => a.AccountPositions)
-                .HasForeignKey(ap => ap.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<AccountPosition>()
-                .HasOne(ap => ap.Position)
-                .WithMany(p => p.AccountPositions)
-                .HasForeignKey(ap => ap.PositionId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<AccountPosition>()
-                .HasOne(ap => ap.Account)
-                .WithMany(a => a.AccountPositions)
-                .HasForeignKey(ap => ap.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<AccountPosition>()
-                .HasOne(ap => ap.Position)
-                .WithMany(p => p.AccountPositions)
-                .HasForeignKey(ap => ap.PositionId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             modelBuilder.Entity<Account>()
                 .Property(a => a.HighestCapital)
                 .HasPrecision(18, 2);
@@ -81,18 +56,6 @@ namespace Tiamat.DataAccess
 
             modelBuilder.Entity<Account>()
                 .Property(a => a.LowestCapital)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<AccountPosition>()
-                .Property(ap => ap.Size)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<AccountPosition>()
-                .Property(ap => ap.Risk)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<AccountPosition>()
-                .Property(ap => ap.Result)
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<NotificationUser>()

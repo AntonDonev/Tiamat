@@ -20,7 +20,7 @@ namespace Tiamat.Models
     {
         public Account()
         {
-            AccountPositions = new List<AccountPosition>();
+            AccountPositions = new List<Position>();
         }
 
         public Account(User user, string accountName, decimal initialCapital, AccountSetting accountSetting, string platform, string brokerLogin, string brokerPassword, string brokerServer, DateTime createdAt)
@@ -41,7 +41,8 @@ namespace Tiamat.Models
             BrokerPassword = brokerPassword;
             BrokerServer = brokerServer;
             CreatedAt = createdAt;
-            AccountPositions = new List<AccountPosition>();
+            AccountPositions = new List<Position>();
+            Affiliated_IP = null;
 
         }
 
@@ -72,9 +73,6 @@ namespace Tiamat.Models
         public Guid AccountSettingsId { get; set; }
         public AccountSetting? AccountSetting { get; set; }
 
-
-        public virtual ICollection<AccountPosition> AccountPositions { get; set; }
-
         [MaxLength(20)]
         public string Platform { get; set; }
 
@@ -89,6 +87,8 @@ namespace Tiamat.Models
 
         public AccountStatus Status { get; set; }
 
+        public string? Affiliated_IP { get; set; }
+
         [MaxLength(100)]
         public string? VPSName { get; set; }
 
@@ -98,6 +98,9 @@ namespace Tiamat.Models
         public DateTime CreatedAt { get; set; }
 
         public DateTime? LastUpdatedAt { get; set; }
+
+        public virtual ICollection<Position> AccountPositions { get; set; }
+
     }
 }
 

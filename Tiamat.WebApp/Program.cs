@@ -38,7 +38,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddHostedService<SeedDatabase>();
+builder.Services.AddHostedService<PythonSocketService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IAccountSettingService, AccountSettingService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 

@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Tiamat.Core\Tiamat.Core.csproj" />
     <ProjectReference Include="..\Tiamat.DataAccess\Tiamat.DataAccess.csproj" />
     <ProjectReference Include="..\Tiamat.Models\Tiamat.Models.csproj" />
   </ItemGroup>
