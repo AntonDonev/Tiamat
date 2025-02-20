@@ -27,7 +27,7 @@ namespace Tiamat.Models
         }
 
         [Key]
-        public Guid Id { get; set; }
+        public string Id { get; set; }
 
         [Required]
         public string Symbol { get; set; }

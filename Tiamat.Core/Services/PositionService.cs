@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Identity.Client;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,21 +13,34 @@ namespace Tiamat.Core.Services
     public class PositionService : IPositionService
     {
         private readonly TiamatDbContext _context;
-        private readonly IAccountService _accountService;
-        public void CreatePosition(string Symbol, string Type, Guid AccountId, decimal Size, decimal Risk, DateTime OpenedAt)
+
+        public PositionService(TiamatDbContext context)
+        {
+            _context = context;
+        }
+        public void CreatePosition(string Symbol, string Type, Account account, decimal Size, decimal Risk, DateTime OpenedAt, string Id)
         {
             Position position = new Position();
-            position.Id = Guid.NewGuid();
+            position.Id = Id;
             position.Symbol = Symbol;
             position.Type = Type;
-            position.AccountId = AccountId;
-            position.Account = _accountService.GetAccountById(AccountId);
+            position.AccountId = account.Id;
+            position.Account = account;
             position.Size = Size;
             position.Risk = Risk;
             position.Result = null;
             position.OpenedAt = OpenedAt;
 
             _context.Positions.Add(position);
+            _context.SaveChanges();
+        }
+
+        public void ClosePosition(string Id, decimal profit, decimal currentCapital, DateTime ClosedAt)
+        {
+            Position position = _context.Positions.FirstOrDefault(x => x.Id == Id);
+            position.Result = profit;
+            _context.Accounts.FirstOrDefault(x=>x.Id==position.AccountId).CurrentCapital = currentCapital;
+            position.ClosedAt = ClosedAt;
             _context.SaveChanges();
         }
     }

@@ -309,9 +309,8 @@ namespace Tiamat.DataAccess.Migrations
 
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uniqueidentifier");

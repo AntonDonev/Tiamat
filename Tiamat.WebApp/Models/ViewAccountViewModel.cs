@@ -28,7 +28,7 @@ namespace Tiamat.WebApp.Models
 
     public class PositionViewModel
     {
-        public Guid PositionId { get; set; }
+        public string PositionId { get; set; }
         public string Symbol { get; set; }
         public decimal Size { get; set; }
         public decimal Risk { get; set; }

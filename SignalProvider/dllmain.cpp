@@ -11,6 +11,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+// Global variables
 static std::string       g_lastMessage;
 static std::mutex        g_messageMutex;
 static std::atomic<bool> g_running{ true };
@@ -33,7 +34,6 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 
         g_running = true;
         g_recvThread = std::thread(recvLoop);
-
         break;
     }
     case DLL_PROCESS_DETACH:
@@ -61,7 +61,6 @@ void recvLoop()
     const unsigned int kServerPort = 12345;
 
     char buffer[1024] = { 0 };
-
     DWORD lastConnectAttempt = 0;
 
     while (g_running)
@@ -72,7 +71,6 @@ void recvLoop()
             if (now - lastConnectAttempt >= 60000)
             {
                 lastConnectAttempt = now;
-
                 SOCKET tempSocket = socket(AF_INET, SOCK_STREAM, 0);
                 if (tempSocket == INVALID_SOCKET)
                 {
@@ -101,7 +99,6 @@ void recvLoop()
                     std::cout << "[recvLoop] Connect failed. Will retry in 1 minute.\n";
                 }
             }
-
             if (g_socket == INVALID_SOCKET)
             {
                 Sleep(1000);
@@ -115,7 +112,7 @@ void recvLoop()
 
         timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 200000; 
+        tv.tv_usec = 200000; // 200 ms
 
         int sel = select(0, &readfds, NULL, NULL, &tv);
         if (sel > 0 && FD_ISSET(g_socket, &readfds))
@@ -125,7 +122,6 @@ void recvLoop()
             {
                 buffer[recvLen] = '\0';
                 std::string msg(buffer);
-
                 {
                     std::lock_guard<std::mutex> lock(g_messageMutex);
                     g_lastMessage = msg;
@@ -145,16 +141,15 @@ void recvLoop()
                 g_socket = INVALID_SOCKET;
             }
         }
-
         Sleep(50);
     }
 }
 
+// Returns a narrow (UTF-8) string from the internal message buffer.
 extern "C" __declspec(dllexport)
 const char* __stdcall DllGetMessage()
 {
     static thread_local std::string localCopy;
-
     {
         std::lock_guard<std::mutex> lock(g_messageMutex);
         localCopy = g_lastMessage;
@@ -163,18 +158,17 @@ const char* __stdcall DllGetMessage()
     return localCopy.c_str();
 }
 
+// Converts the internal UTF-8 message to a wide (UTF-16) string and returns it.
 extern "C" __declspec(dllexport)
 const wchar_t* __stdcall DllGetMessageW()
 {
     static thread_local std::wstring localCopyW;
-
     std::string temp;
     {
         std::lock_guard<std::mutex> lock(g_messageMutex);
         temp = g_lastMessage;
         g_lastMessage.clear();
     }
-
     if (!temp.empty())
     {
         int needed = MultiByteToWideChar(CP_UTF8, 0, temp.c_str(), -1, nullptr, 0);
@@ -192,10 +186,10 @@ const wchar_t* __stdcall DllGetMessageW()
     {
         localCopyW = L"";
     }
-
     return localCopyW.c_str();
 }
 
+// Sends a narrow (UTF-8) string to the server.
 extern "C" __declspec(dllexport)
 void __stdcall SendMessageToServer(const char* msg)
 {
@@ -206,13 +200,26 @@ void __stdcall SendMessageToServer(const char* msg)
     send(g_socket, toSend.c_str(), static_cast<int>(toSend.size()), 0);
 }
 
+// New function: Sends a wide (UTF-16) string to the server after converting it to UTF-8.
+extern "C" __declspec(dllexport)
+void __stdcall SendMessageToServerW(const wchar_t* msg)
+{
+    if (!msg) return;
+    if (g_socket == INVALID_SOCKET) return;
+
+    int needed = WideCharToMultiByte(CP_UTF8, 0, msg, -1, nullptr, 0, nullptr, nullptr);
+    if (needed <= 0)
+        return;
+
+    std::string narrowMsg;
+    narrowMsg.resize(needed);
+    WideCharToMultiByte(CP_UTF8, 0, msg, -1, &narrowMsg[0], needed, nullptr, nullptr);
+
+    send(g_socket, narrowMsg.c_str(), static_cast<int>(narrowMsg.size()), 0);
+}
+
 extern "C" __declspec(dllexport)
 void CALLBACK RunDllEntry(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow)
 {
-    MessageBoxA(
-        nullptr,
-        "rundll32!",
-        "SignalProvider",
-        MB_OK
-    );
+    MessageBoxA(nullptr, "rundll32!", "SignalProvider", MB_OK);
 }

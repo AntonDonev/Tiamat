@@ -262,7 +262,7 @@ namespace Tiamat.DataAccess.Migrations
                 name: "Positions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Symbol = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),

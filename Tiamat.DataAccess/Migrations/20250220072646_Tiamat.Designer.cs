@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250219190925_Tiamat")]
+    [Migration("20250220072646_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />
@@ -312,9 +312,8 @@ namespace Tiamat.DataAccess.Migrations
 
             modelBuilder.Entity("Tiamat.Models.Position", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uniqueidentifier");
