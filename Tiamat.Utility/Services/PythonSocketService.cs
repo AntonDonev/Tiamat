@@ -88,7 +88,7 @@ namespace Tiamat.Utility.Services
                                             string sizeStr = input[4].Trim();
                                             string riskStr = input[5].Trim();
                                             string openedAtStr = input[6].Trim();
-                                            string fromIp = input[8].Replace("FROM_IP =", "").Trim();
+                                            string fromIp = input[8].Replace("FROM_IP=", "").Trim();
                                             string id = input[7].Trim();
 
                                             var account = accountService.GetAccountByIp(fromIp);
@@ -97,7 +97,9 @@ namespace Tiamat.Utility.Services
                                                 _logger.LogError("Account with IP {FromIp} not found.", fromIp);
                                                 continue; // Skip processing if account not found
                                             }
-
+                                            _logger.LogInformation("Received message: {Message}", message);
+                                            _logger.LogInformation("Parsed: symbol={Symbol}, type={Type}, size={Size}, risk={Risk}, openedAt={OpenedAt}, fromIp={FromIp}, id={Id}",
+                                                symbol, type, sizeStr, riskStr, openedAtStr, fromIp, id);
                                             // Pass the entire account object to CreatePosition.
                                             positionService.CreatePosition(
                                                 symbol,
@@ -126,13 +128,16 @@ namespace Tiamat.Utility.Services
                                             string profit = input[2].Trim();
                                             string currentCapital = input[3].Trim();
                                             string closedAtStr = input[4].Trim();
-                                            string id = input[5].Trim();
+                                            string id = input[6].Trim();
+                                            string fromIp = input[7].Replace("FROM_IP=", "").Trim();
+
 
                                             positionService.ClosePosition(
                                                 id,
                                                 decimal.Parse(profit),
                                                 decimal.Parse(currentCapital),
-                                                DateTime.Parse(closedAtStr));
+                                                DateTime.Parse(closedAtStr),
+                                                fromIp);
                                         }
                                     }
                                     catch (Exception ex)
