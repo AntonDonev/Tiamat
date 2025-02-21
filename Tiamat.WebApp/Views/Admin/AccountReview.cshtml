@@ -213,7 +213,6 @@
 
 @section Scripts {
     <script>
-        // Show/hide broker password on click
         document.addEventListener('DOMContentLoaded', function () {
             var passwordEls = document.querySelectorAll('.broker-password');
             passwordEls.forEach(function (el) {
@@ -231,7 +230,6 @@
                 });
             });
 
-            // Deny modal
             var denyNotifyModal = document.getElementById('denyNotifyModal');
             denyNotifyModal.addEventListener('show.bs.modal', function (event) {
                 var button = event.relatedTarget;
@@ -249,7 +247,6 @@
                 }
             });
 
-            // Accept modal
             var acceptNotifyModal = document.getElementById('acceptNotifyModal');
             acceptNotifyModal.addEventListener('show.bs.modal', function (event) {
                 var button = event.relatedTarget;

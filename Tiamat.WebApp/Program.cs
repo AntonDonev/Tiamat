@@ -6,6 +6,7 @@ using Tiamat.Core.Services;
 using Tiamat.DataAccess;
 using Tiamat.Models;
 using Tiamat.Utility.Services;
+using Tiamat.Utility;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,9 +14,14 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<TiamatDbContext>(options =>
-    options.UseSqlServer(connectionString,
-        b => b.MigrationsAssembly("Tiamat.DataAccess")
-    )
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.MigrationsAssembly("Tiamat.DataAccess");
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+    })
 );
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
@@ -38,7 +44,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddHostedService<SeedDatabase>();
-builder.Services.AddHostedService<PythonSocketService>();
+builder.Services.AddSingleton<PythonSocketService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PythonSocketService>());
+builder.Services.AddScoped<CheckPythonConnectionAttribute>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IAccountSettingService, AccountSettingService>();

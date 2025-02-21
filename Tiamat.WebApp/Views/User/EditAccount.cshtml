@@ -2,7 +2,7 @@
 @model Tiamat.Models.Account
 
 @{
-    ViewData["Title"] = "Edit Account";
+    ViewData["Title"] = "Редактиране на акаунт";
 }
 
 <link rel="stylesheet" href="~/css/addAccountStyle.css" />
@@ -10,7 +10,7 @@
 <div asp-validation-summary="All" class="text-danger"></div>
 
 <div class="add-account-container">
-    <h1 class="title">Edit Account</h1>
+    <h1 class="title">Редактиране на акаунт</h1>
     <div class="add-account-card">
 
         <form asp-action="EditAccount" asp-controller="User" method="post">
@@ -22,9 +22,9 @@
             </div>
 
             <div class="form-group">
-                <label asp-for="AccountSettingsId">Account Setting</label>
+                <label asp-for="AccountSettingsId">Настройка на акаунт</label>
                 <select asp-for="AccountSettingsId" class="form-control">
-                    <option value="">Select</option>
+                    <option value="">Избери</option>
                     @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
                     {
                         <option value="@setting.AccountSettingId"
@@ -35,7 +35,7 @@
                 </select>
             </div>
 
-            <button type="submit" class="submit-btn">Save Changes</button>
+            <button type="submit" class="submit-btn">Запази промените</button>
         </form>
     </div>
 </div>

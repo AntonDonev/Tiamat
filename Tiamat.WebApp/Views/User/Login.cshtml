@@ -1,5 +1,5 @@
 ﻿@{
-    ViewData["Title"] = "Login";
+    ViewData["Title"] = "Вход";
 }
 
 <link rel="stylesheet" href="~/css/loginStyle.css" />
@@ -7,35 +7,35 @@
 <div class="d-flex flex-column">
     <main class="d-flex justify-content-center align-items-center flex-grow-1 mt-5">
         <div class="explanation-container">
-            <h1 class="explanation-text">Welcome to Tiamat WebApp! Please log in to continue.</h1>
+            <h1 class="explanation-text">Добре дошли в Tiamat WebApp! Моля, влезте за да продължите.</h1>
         </div>
         <div class="login-container">
-            <h2 class="login-title">LOGIN</h2>
+            <h2 class="login-title">ВХОД</h2>
 
             <form method="post" asp-action="Login" asp-controller="User">
                 <div class="input-group">
-                    <input type="text" name="username" placeholder="Username" required>
+                    <input type="text" name="username" placeholder="Потребителско име" required>
                     <span class="input-icon">
                         <i class="bi bi-person"></i>
                     </span>
                 </div>
                 <div class="input-group">
-                    <input type="password" name="password" placeholder="Password" required>
+                    <input type="password" name="password" placeholder="Парола" required>
                     <span class="input-icon">
                         <i class="bi bi-lock"></i>
                     </span>
                 </div>
-                <button type="submit">LOGIN</button>
+                <button type="submit">ВХОД</button>
                 <div class="links">
-                    <a href="#" class="forgot-link">Forgot Password?</a>
-                    <a href="#" class="remember-link">Remember Me</a>
+                    <a href="#" class="forgot-link">Забравена парола?</a>
+                    <a href="#" class="remember-link">Запомни ме</a>
                 </div>
             </form>
 
             @if (!ViewData.ModelState.IsValid)
             {
                 <div style="color:red; text-align:center; margin-top:5px;">
-                    Invalid login attempt
+                    Невалиден опит за вход
                 </div>
             }
         </div>

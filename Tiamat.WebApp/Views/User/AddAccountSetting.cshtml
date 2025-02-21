@@ -2,14 +2,14 @@
 
 @{
     Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
-    ViewData["Title"] = "Add Account Setting";
+    ViewData["Title"] = "Добави настройка на акаунт";
 }
 
 <link rel="stylesheet" href="~/css/addAccountStyle.css" />
 
 <div class="add-account-container">
     <div class="add-account-card">
-        <h1 class="title">Add New Account Setting</h1>
+        <h1 class="title">Добави нова настройка на акаунт</h1>
         <form method="post" asp-action="AddAccountSetting" asp-controller="User">
             <div class="form-group">
                 <label asp-for="SettingName"></label>
@@ -29,7 +29,7 @@
                 <span asp-validation-for="UntradablePeriodMinutes"></span>
             </div>
 
-            <button type="submit" class="submit-btn">Create</button>
+            <button type="submit" class="submit-btn">Създай</button>
         </form>
     </div>
 </div>

@@ -1,10 +1,9 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Tiamat.WebApp</title>
-
 
     <link rel="stylesheet" href="~/lib/iziToast/css/iziToast.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -19,31 +18,30 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
             <div class="container">
                 <a class="navbar-brand mx-3" href="#">
-                    <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" id="logo" />
+                    <img src="~/images/tiamat_logo.png" alt="Tiamat Лого" height="40" id="logo" />
                 </a>
 
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation" style="border: none;">
+                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Превключване на навигация" style="border: none;">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav ms-auto d-flex align-items-center" style="gap: 1rem;">
                         <li class="nav-item">
-                            <a class="nav-link text-light" href="#" id="home-link">Home</a>
+                            <a class="nav-link text-light" href="#" id="home-link">Начало</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-light" href="#" id="about-link">About Us</a>
+                            <a class="nav-link text-light" href="#" id="about-link">За нас</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-light" href="#" id="join-link">Join Us</a>
+                            <a class="nav-link text-light" href="#" id="join-link">Присъедини се</a>
                         </li>
                         @if (User.Identity.IsAuthenticated)
                         {
-
                             <li class="nav-item">
                                 <a href="@Url.Action("Dashboard", "User")" class="btn btn-outline-light nav-soft rounded-pill px-4" id="sign-in-btn">
-                                    Dashboard
+                                    Табло
                                 </a>
                             </li>
                         }
@@ -52,7 +50,7 @@
                             <a href="@Url.Action("Login", "User")"
                                class="btn btn-outline-light nav-soft rounded-pill px-4"
                                id="sign-in-btn">
-                                Sign In
+                                Вход
                             </a>
                         }
                     </ul>
@@ -67,7 +65,7 @@
 
     <footer class="footer border-top text-muted">
         <div class="container">
-            &copy; 2025 - Tiamat.WebApp - <a href="#">Privacy</a>
+            &copy; 2025 - Tiamat.WebApp - <a href="#">Поверителност</a>
         </div>
     </footer>
 

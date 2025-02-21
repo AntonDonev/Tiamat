@@ -6,10 +6,14 @@ using System.Security.Claims;
 using Tiamat.Core.Services;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
+using Tiamat.Utility;
+using Tiamat.Utility.Services;
 using Tiamat.WebApp.Models;
 
 namespace Tiamat.WebApp.Controllers
 {
+    [Authorize]
+    [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
     public class UserController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -17,20 +21,22 @@ namespace Tiamat.WebApp.Controllers
         private readonly IAccountService _accountService;
         private readonly IAccountSettingService _accountSettingService;
         private readonly INotificationService _notificationService;
+        private readonly PythonSocketService _pythonSocketService;
 
         public UserController(
             SignInManager<User> signInManager,
             UserManager<User> userManager,
             IAccountService accountService,
             IAccountSettingService accountSettingService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            PythonSocketService pythonSocketService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _accountService = accountService;
             _accountSettingService = accountSettingService;
             _notificationService = notificationService;
-
+            _pythonSocketService = pythonSocketService;
         }
 
         [HttpGet]
@@ -67,7 +73,6 @@ namespace Tiamat.WebApp.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        [Authorize]
         [HttpGet]
         public IActionResult Dashboard()
         {
@@ -105,6 +110,7 @@ namespace Tiamat.WebApp.Controllers
                     PositionId = ap.Id,
                     Symbol = ap.Symbol,
                     Size = ap.Size,
+                    Type = ap.Type,
                     Risk = ap.Risk,
                     Result = ap.Result,
                     OpenedAt = ap.OpenedAt,
@@ -130,13 +136,22 @@ namespace Tiamat.WebApp.Controllers
 
                     var combinedErrors = string.Join("; ", errors);
 
-                    TempData["AlertMessage"] = "Failed to create account setting: " + combinedErrors;
+                    TempData["AlertMessage"] = "Failed to update account setting: " + combinedErrors;
                     TempData["AlertTitle"] = "Validation Error";
                     TempData["AlertType"] = "error";
                     ViewBag.AccountSettings = _accountSettingService.GetSettingsForUser(Guid.Empty).ToList();
 
-                    return View(model);
-                }
+                return RedirectToAction("ViewAccount", new { id = model.AccountId });
+            }
+
+            if (!model.AccountSettingsId.HasValue)
+            {
+
+                TempData["AlertMessage"] = "Failed to update account setting: ";
+                TempData["AlertTitle"] = "Validation Error";
+                TempData["AlertType"] = "error";
+                return RedirectToAction("ViewAccount", new { id = model.AccountId });
+            }
 
                 var account = _accountService.GetAccountById(model.AccountId);
             if (account == null) return NotFound();
@@ -145,17 +160,20 @@ namespace Tiamat.WebApp.Controllers
             if (model.AccountSettingsId.HasValue)
             {
                 account.AccountSettingsId = model.AccountSettingsId.Value;
+                AccountSetting accountSetting = _accountSettingService.GetSettingById(account.AccountSettingsId);
+                _pythonSocketService.EnqueueMessageAsync($"EDIT|{account.Id}|{accountSetting.MaxRiskPerTrade}|{accountSetting.UntradablePeriodMinutes}");
             }
 
             account.LastUpdatedAt = DateTime.UtcNow;
 
             _accountService.UpdateAccount(account);
-
+            TempData["AlertMessage"] = "Account updated successfully!";
+            TempData["AlertTitle"] = "Success";
+            TempData["AlertType"] = "success";
             return RedirectToAction("ViewAccount", new { id = account.Id });
         }
 
 
-        [Authorize]
         [HttpGet]
         public IActionResult AccountCenter()
         {
@@ -195,7 +213,6 @@ namespace Tiamat.WebApp.Controllers
             return View(vm);
         }
 
-        [Authorize]
         [HttpGet]
         public IActionResult Settings()
         {
@@ -218,7 +235,6 @@ namespace Tiamat.WebApp.Controllers
             return View(vm);
         }
 
-        [Authorize]
         [HttpPost]
         public IActionResult Settings(string? settingNameFilter)
         {
@@ -226,7 +242,6 @@ namespace Tiamat.WebApp.Controllers
             return RedirectToAction(nameof(FilteredSettings));
         }
 
-        [Authorize]
         [HttpGet]
         public IActionResult FilteredSettings()
         {
@@ -295,14 +310,12 @@ namespace Tiamat.WebApp.Controllers
             return Json(new { success = true, unreadCount = newCount });
         }
 
-        [Authorize]
         [HttpGet]
         public IActionResult AddAccountSetting()
         {
             return View();
         }
 
-        [Authorize]
         [HttpPost]
         public IActionResult AddAccountSetting(AccountSettingAddViewModel vm)
         {
@@ -338,7 +351,6 @@ namespace Tiamat.WebApp.Controllers
 
 
 
-        [Authorize]
         [HttpPost]
         public IActionResult AccountCenter(string? PlatformFilter, string? StatusFilter, string? AccountSettingFilter)
         {
@@ -350,7 +362,6 @@ namespace Tiamat.WebApp.Controllers
         }
 
 
-        [Authorize]
         [HttpGet]
         public IActionResult FilteredAccountCenter()
         {
@@ -413,7 +424,6 @@ namespace Tiamat.WebApp.Controllers
             return View("AccountCenter", vm);
         }
 
-        [Authorize]
         [HttpGet]
         public IActionResult AddAccount()
         {
@@ -424,7 +434,6 @@ namespace Tiamat.WebApp.Controllers
             return View();
         }
 
-        [Authorize]
         [HttpPost]
         public IActionResult AddAccount(Account account)
         {

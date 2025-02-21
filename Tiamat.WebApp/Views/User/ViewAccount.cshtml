@@ -3,7 +3,7 @@
 
 @{
     Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
-    ViewData["Title"] = "View Account";
+    ViewData["Title"] = "Преглед на акаунт";
 }
 
 @functions
@@ -25,26 +25,28 @@
 <div class="account-details-container">
     <div class="accounts-card">
         <div class="accounts-card-header">
-            <h2>Account Information</h2>
+            <h2>Информация за акаунта</h2>
         </div>
         <div class="accounts-card-body">
             <form method="post" asp-action="ViewAccount" asp-controller="User">
                 <input type="hidden" asp-for="AccountId" />
+                <input type="hidden" asp-for="Platform" />
+                <input type="hidden" asp-for="BrokerLogin" />
+                <input type="hidden" asp-for="BrokerPassword" />
+                <input type="hidden" asp-for="BrokerServer" />
+                <input type="hidden" asp-for="VPSName" />
+                <input type="hidden" asp-for="AdminEmail" />
 
                 <div class="table-responsive">
                     <table class="account-table">
                         <thead>
                             <tr>
-                                <th>Account Name</th>
-                                <th>Initial Capital</th>
-                                <th>Platform</th>
-                                <th>Broker Login</th>
-                                <th>Broker Password</th>
-                                <th>Broker Server</th>
-                                <th>Status</th>
-                                <th>Created At</th>
-                                <th>Account Setting</th>
-                                <th>Actions</th>
+                                <th>Име на акаунта</th>
+                                <th>Първоначален капитал</th>
+                                <th>Статус</th>
+                                <th>Създаден на</th>
+                                <th>Настройка на акаунта</th>
+                                <th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -52,39 +54,19 @@
                                 <td>
                                     <input asp-for="AccountName" class="form-control" />
                                 </td>
-
                                 <td>
                                     <input class="form-control" value="@Model.InitialCapital" disabled />
                                 </td>
-
-                                <td>
-                                    <input class="form-control" value="@Model.Platform" disabled />
-                                </td>
-
-                                <td>
-                                    <input class="form-control" value="@Model.BrokerLogin" disabled />
-                                </td>
-
-                                <td>
-                                    <input class="form-control" value="@Model.BrokerPassword" disabled />
-                                </td>
-
-                                <td>
-                                    <input class="form-control" value="@Model.BrokerServer" disabled />
-                                </td>
-
                                 <td>
                                     <input class="form-control @GetStatusClass(Model.Status.ToString())"
                                            value="@Model.Status" disabled />
                                 </td>
-
                                 <td>
                                     <input class="form-control" value="@Model.CreatedAt.ToShortDateString()" disabled />
                                 </td>
-
                                 <td>
                                     <select asp-for="AccountSettingsId" class="form-control">
-                                        <option value="">Select</option>
+                                        <option value="">Избери</option>
                                         @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
                                         {
                                             <option value="@setting.AccountSettingId"
@@ -94,9 +76,8 @@
                                         }
                                     </select>
                                 </td>
-
                                 <td>
-                                    <button type="submit" class="btn-save-changes">Save Changes</button>
+                                    <button type="submit" class="btn-save-changes">Запази промените</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -108,12 +89,12 @@
 
     <div class="accounts-card">
         <div class="accounts-card-header">
-            <h2>Positions for @Model.AccountName</h2>
+            <h2>Позиции за @Model.AccountName</h2>
         </div>
         <div class="accounts-card-body">
             @if (Model.Positions == null || !Model.Positions.Any())
             {
-                <div class="no-positions">No positions found for this account.</div>
+                <div class="no-positions">Няма намерени позиции за този акаунт.</div>
             }
             else
             {
@@ -121,12 +102,12 @@
                     <table class="account-table">
                         <thead>
                             <tr>
-                                <th>Symbol</th>
-                                <th>Size</th>
-                                <th>Risk</th>
-                                <th>Result</th>
-                                <th>Opened At</th>
-                                <th>Closed At</th>
+                                <th>Символ</th>
+                                <th>Тип</th>
+                                <th>Размер</th>
+                                <th>Риск</th>
+                                <th>Дата</th>
+                                <th>Резултат</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,18 +115,27 @@
                             {
                                 <tr>
                                     <td>@pos.Symbol</td>
+                                    <td>@pos.Type</td>
                                     <td>@pos.Size</td>
                                     <td>@pos.Risk</td>
-                                    <td>@pos.Result</td>
-                                    <td>@pos.OpenedAt.ToShortDateString()</td>
                                     <td>
                                         @if (pos.ClosedAt.HasValue)
                                         {
-                                            @pos.ClosedAt.Value.ToShortDateString()
+                                            @pos.OpenedAt.ToShortDateString() <span class="date-separator"> - </span> @pos.ClosedAt.Value.ToShortDateString()
                                         }
                                         else
                                         {
-                                            <span class="open-position">Open</span>
+                                            @pos.OpenedAt.ToShortDateString()
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (pos.Result.HasValue)
+                                        {
+                                            @pos.Result
+                                        }
+                                        else
+                                        {
+                                            <span class="open-position">АКТИВЕН</span>
                                         }
                                     </td>
                                 </tr>

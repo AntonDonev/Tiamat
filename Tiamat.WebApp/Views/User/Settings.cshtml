@@ -2,19 +2,19 @@
 
 @{
     Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
-    ViewData["Title"] = "Account Settings";
+    ViewData["Title"] = "Настройки на акаунта";
 }
 
 <link rel="stylesheet" href="~/css/accountcenter.css" />
 
 <div class="account-list-container">
-    <h1 class="list-title">Account Settings</h1>
+    <h1 class="list-title">Настройки на акаунта</h1>
 
     <div class="filter-card">
-        <h2 class="filter-title">Filters</h2>
+        <h2 class="filter-title">Филтри</h2>
         <form method="post" asp-action="Settings" asp-controller="User" class="filter-form">
             <div class="filter-group">
-                <label for="SettingNameFilter">Setting Name</label>
+                <label for="SettingNameFilter">Име на настройка</label>
                 <input type="text"
                        name="SettingNameFilter"
                        id="SettingNameFilter"
@@ -23,23 +23,23 @@
             </div>
 
             <div class="filter-submit">
-                <button type="submit" class="apply-btn">Apply</button>
+                <button type="submit" class="apply-btn">Приложи</button>
             </div>
         </form>
     </div>
 
     <div class="accounts-card">
         <div class="accounts-card-header">
-            <h2>All Settings</h2>
+            <h2>Всички настройки</h2>
             <div class="add-account-button">
-                <a asp-action="AddAccountSetting" asp-controller="User" class="btn-add-account">Add Setting</a>
+                <a asp-action="AddAccountSetting" asp-controller="User" class="btn-add-account">Добави настройка</a>
             </div>
         </div>
 
         <div class="accounts-card-body">
             @if (Model.Settings == null || !Model.Settings.Any())
             {
-                <div class="no-accounts">No settings found.</div>
+                <div class="no-accounts">Не са намерени настройки.</div>
             }
             else
             {
@@ -47,13 +47,13 @@
                     <table class="account-table" id="accountTable">
                         <thead>
                             <tr>
-                                <th>Setting Name</th>
+                                <th>Име на настройка</th>
                                 <th id="riskHeader" data-sort-dir="asc">
-                                    Max Risk per Trade
+                                    Максимален риск на сделка
                                     <i class="fa-solid fa-sort table-sort-icon"
                                        id="riskSortIcon"></i>
                                 </th>
-                                <th>Untradable Period (minutes)</th>
+                                <th>Период без търговия (минути)</th>
                             </tr>
                         </thead>
                         <tbody>

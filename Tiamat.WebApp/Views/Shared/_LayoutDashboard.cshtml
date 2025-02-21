@@ -5,7 +5,7 @@
 @inject INotificationService notificationService
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
     <meta charset="utf-8" />
     <title>@ViewData["Title"]</title>
@@ -51,6 +51,7 @@
             opacity: 1;
             transform: translateY(0);
         }
+
         .nav-item.dropdown:hover .dropdown-menu {
             display: block;
             opacity: 1;
@@ -89,9 +90,9 @@
                    border-end border-secondary sidebar">
                 <div class="text-center mb-3" style="width:100%;">
                     <a asp-controller="Home" asp-action="Index" id="logo">
-                        <img src="~/images/tiamat_logo.png" alt="Tiamat Logo" height="40" />
+                        <img src="~/images/tiamat_logo.png" alt="Tiamat Лого" height="40" />
                         <div class="sidebar-text" style="font-weight:600; margin-top:0.6rem;">
-                            Tiamat Fund
+                            Tiamat Фонд
                         </div>
                     </a>
                 </div>
@@ -105,7 +106,7 @@
                            asp-action="Dashboard"
                            id="home-link">
                             <i class="bi bi-speedometer2"></i>
-                            <span class="sidebar-text">Dashboard</span>
+                            <span class="sidebar-text">Табло</span>
                         </a>
                     </li>
 
@@ -117,7 +118,7 @@
                            asp-action="AccountCenter"
                            id="about-link">
                             <i class="bi bi-person-circle"></i>
-                            <span class="sidebar-text">Account Center</span>
+                            <span class="sidebar-text">Акаунти</span>
                         </a>
                     </li>
 
@@ -129,7 +130,7 @@
                            asp-action="Settings"
                            id="settings-link">
                             <i class="bi bi-gear"></i>
-                            <span class="sidebar-text">Settings</span>
+                            <span class="sidebar-text">Настройки</span>
                         </a>
                     </li>
 
@@ -145,23 +146,23 @@
                                role="button"
                                aria-expanded="false">
                                 <i class="bi bi-shield-lock"></i>
-                                <span class="sidebar-text">Admin Panel</span>
+                                <span class="sidebar-text">Администратор</span>
                             </a>
 
                             <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="adminDropdown">
                                 <li>
                                     <a class="dropdown-item" asp-controller="Admin" asp-action="UserCenter">
-                                        User Center
+                                        Потребители
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" asp-controller="Admin" asp-action="Notification">
-                                        Notification
+                                        Известия
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" asp-controller="Admin" asp-action="AccountReview">
-                                        Account Review
+                                        Прегледи
                                     </a>
                                 </li>
                             </ul>
@@ -175,7 +176,7 @@
                             @Html.AntiForgeryToken()
                             <button type="submit" class="btn nav-link p-0" style="border: none; background: none;">
                                 <i class="bi bi-box-arrow-right"></i>
-                                <span class="sidebar-text">Log Out</span>
+                                <span class="sidebar-text">Изход</span>
                             </button>
                         </form>
                     </li>
@@ -183,14 +184,14 @@
 
                 <div class="sidebar-footer">
                     © 2025 - Tiamat.WebApp -
-                    <a href="#" class="text-white">Privacy</a>
+                    <a href="#" class="text-white">Поверителност</a>
                 </div>
             </nav>
 
             <div class="col px-0">
                 <div class="d-flex justify-content-evenly align-items-center p-2 bg-dark text-white border-bottom border-secondary">
-                    <span>Active Accounts: @activeAccountsCount</span>
-                    <span>Weekly Change: []</span>
+                    <span>Активни акаунти: @activeAccountsCount</span>
+                    <span>Седмична промяна: []</span>
                     <span>
                         @userName
                         <sub class="ms-1 text-info" style="font-size:0.8rem">
@@ -219,8 +220,8 @@
         <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
             <div class="modal-content bg-dark text-white">
                 <div class="modal-header border-secondary">
-                    <h5 class="modal-title" id="notificationModalLabel">Notifications</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="notificationModalLabel">Известия</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Затвори"></button>
                 </div>
 
                 <div class="modal-body">
@@ -248,7 +249,7 @@
                         }
                         else
                         {
-                            <p>No notifications found.</p>
+                            <p>Няма намерени известия.</p>
                         }
                     </div>
 
@@ -266,8 +267,8 @@
 
                             <input type="hidden" name="notificationId" id="hiddenNotificationId" />
 
-                            <button type="submit" class="btn btn-success">Mark as Read</button>
-                            <button type="button" class="btn btn-secondary" id="backToListBtn">Back</button>
+                            <button type="submit" class="btn btn-success">Отбележи като прочетено</button>
+                            <button type="button" class="btn btn-secondary" id="backToListBtn">Назад</button>
                         </form>
                     </div>
                 </div>
@@ -275,9 +276,9 @@
                 <div class="modal-footer border-secondary">
                     <form asp-controller="User" asp-action="MarkAllAsRead" method="post" class="m-0">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-secondary">Mark All as Read</button>
+                        <button type="submit" class="btn btn-secondary">Отбележи всички като прочетени</button>
                     </form>
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Затвори</button>
                 </div>
             </div>
         </div>
@@ -340,29 +341,29 @@
                     method: "POST",
                     body: formData
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const badge = document.querySelector(".badge.bg-danger");
-                        if (badge) {
-                            badge.textContent = data.unreadCount;
-                            if (data.unreadCount === 0) {
-                                badge.style.display = "none";
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            const badge = document.querySelector(".badge.bg-danger");
+                            if (badge) {
+                                badge.textContent = data.unreadCount;
+                                if (data.unreadCount === 0) {
+                                    badge.style.display = "none";
+                                }
                             }
-                        }
 
-                        const notifId = formData.get("notificationId");
-                        const clickedItem = document.querySelector(`.notification-item[data-id='${notifId}']`);
-                        if (clickedItem) {
-                            clickedItem.classList.add("notification-read");
-                            clickedItem.dataset.isread = "true";
-                        }
+                            const notifId = formData.get("notificationId");
+                            const clickedItem = document.querySelector(`.notification-item[data-id='${notifId}']`);
+                            if (clickedItem) {
+                                clickedItem.classList.add("notification-read");
+                                clickedItem.dataset.isread = "true";
+                            }
 
-                        detailContainer.style.display = "none";
-                        listContainer.style.display = "block";
-                    }
-                })
-                .catch(err => console.error("Error marking notification as read:", err));
+                            detailContainer.style.display = "none";
+                            listContainer.style.display = "block";
+                        }
+                    })
+                    .catch(err => console.error("Грешка при отбелязване на известието като прочетено:", err));
             });
         });
     </script>

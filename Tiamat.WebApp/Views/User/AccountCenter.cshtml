@@ -1,7 +1,7 @@
 ﻿@model Tiamat.WebApp.Models.AccountCenterViewModel
 @{
     Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
-    ViewData["Title"] = "Account List";
+    ViewData["Title"] = "Списък на акаунтите";
 }
 
 @functions {
@@ -20,15 +20,15 @@
 <link rel="stylesheet" href="~/css/accountcenter.css" />
 
 <div class="account-list-container">
-    <h1 class="list-title">Account List</h1>
+    <h1 class="list-title">Списък на акаунтите</h1>
 
     <div class="filter-card">
-        <h2 class="filter-title">Filters</h2>
+        <h2 class="filter-title">Филтри</h2>
         <form method="post" asp-action="AccountCenter" asp-controller="User" class="filter-form">
             <div class="filter-group">
-                <label for="PlatformFilter">Platform</label>
+                <label for="PlatformFilter">Платформа</label>
                 <select name="PlatformFilter" id="PlatformFilter" class="form-select">
-                    <option value="">All</option>
+                    <option value="">Всички</option>
                     <option value="MT4"
                             selected="@(Model.PlatformFilter == "MT4" ? "selected" : null)">
                         MT4
@@ -41,32 +41,32 @@
             </div>
 
             <div class="filter-group">
-                <label for="StatusFilter">Status</label>
+                <label for="StatusFilter">Статус</label>
                 <select name="StatusFilter" id="StatusFilter" class="form-select">
-                    <option value="">All</option>
+                    <option value="">Всички</option>
                     <option value="Pending"
                             selected="@(Model.StatusFilter == "Pending" ? "selected" : null)">
-                        Pending
+                        Изчаква
                     </option>
                     <option value="Active"
                             selected="@(Model.StatusFilter == "Active" ? "selected" : null)">
-                        Active
+                        Активен
                     </option>
                     <option value="Failed"
                             selected="@(Model.StatusFilter == "Failed" ? "selected" : null)">
-                        Failed
+                        Неуспешен
                     </option>
                     <option value="Closed"
                             selected="@(Model.StatusFilter == "Closed" ? "selected" : null)">
-                        Closed
+                        Затворен
                     </option>
                 </select>
             </div>
 
             <div class="filter-group">
-                <label for="AccountSettingFilter">Account Setting</label>
+                <label for="AccountSettingFilter">Настройка на акаунта</label>
                 <select name="AccountSettingFilter" id="AccountSettingFilter" class="form-select">
-                    <option value="">All</option>
+                    <option value="">Всички</option>
                     @foreach (var setting in Model.AccountSettings)
                     {
                         <option value="@setting.AccountSettingId"
@@ -82,23 +82,23 @@
             </div>
 
             <div class="filter-submit">
-                <button type="submit" class="apply-btn">Apply</button>
+                <button type="submit" class="apply-btn">Приложи</button>
             </div>
         </form>
     </div>
 
     <div class="accounts-card">
         <div class="accounts-card-header">
-            <h2>All Accounts</h2>
+            <h2>Всички акаунти</h2>
             <div class="add-account-button">
-                <a asp-action="AddAccount" asp-controller="User" class="btn-add-account">Add Account</a>
+                <a asp-action="AddAccount" asp-controller="User" class="btn-add-account">Добави акаунт</a>
             </div>
         </div>
 
         <div class="accounts-card-body">
             @if (Model.Accounts == null || !Model.Accounts.Any())
             {
-                <div class="no-accounts">No accounts found.</div>
+                <div class="no-accounts">Няма намерени акаунти.</div>
             }
             else
             {
@@ -106,14 +106,14 @@
                     <table class="account-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Initial Capital</th>
-                                <th>Current Capital</th>
-                                <th>Platform</th>
-                                <th>Account Setting</th>
-                                <th>Created At</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th>Име</th>
+                                <th>Първоначален капитал</th>
+                                <th>Текущ капитал</th>
+                                <th>Платформа</th>
+                                <th>Настройка на акаунта</th>
+                                <th>Създаден на</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -124,7 +124,7 @@
                                     <td>@account.InitialCapital</td>
                                     <td>@account.CurrentCapital</td>
                                     <td>@account.Platform</td>
-                                    <td>@(account.AccountSettingName ?? "N/A")</td>
+                                    <td>@(account.AccountSettingName ?? "Няма")</td>
                                     <td>@account.CreatedAt.ToShortDateString()</td>
                                     <td>
                                         <span class="@GetStatusClass(account.Status)">
@@ -136,7 +136,7 @@
                                            asp-controller="User"
                                            asp-route-id="@account.AccountId"
                                            class="btn-action btn-edit">
-                                            View
+                                            Преглед
                                         </a>
                                     </td>
                                 </tr>

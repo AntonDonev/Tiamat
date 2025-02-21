@@ -1,11 +1,15 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
+using Tiamat.Utility;
 
 namespace Tiamat.WebApp.Controllers
 {
+    [Authorize(Roles = "Admin")]
+    [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
     public class AdminController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -66,7 +70,6 @@ namespace Tiamat.WebApp.Controllers
 
             return Json(new { success = true, unreadCount = newCount });
         }
-
 
         [HttpGet]
         public IActionResult AccountReview()

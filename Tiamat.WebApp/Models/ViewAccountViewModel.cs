@@ -30,6 +30,7 @@ namespace Tiamat.WebApp.Models
     {
         public string PositionId { get; set; }
         public string Symbol { get; set; }
+        public string Type { get; set; }
         public decimal Size { get; set; }
         public decimal Risk { get; set; }
         public decimal? Result { get; set; }
