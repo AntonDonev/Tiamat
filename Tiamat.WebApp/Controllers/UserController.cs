@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Tiamat.Core.Services;
@@ -9,11 +10,11 @@ using Tiamat.Models;
 using Tiamat.Utility;
 using Tiamat.Utility.Services;
 using Tiamat.WebApp.Models;
+using static Tiamat.WebApp.Models.DashboardViewModel;
 
 namespace Tiamat.WebApp.Controllers
 {
     [Authorize]
-    [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
     public class UserController : Controller
     {
         private readonly SignInManager<User> _signInManager;
@@ -22,6 +23,7 @@ namespace Tiamat.WebApp.Controllers
         private readonly IAccountSettingService _accountSettingService;
         private readonly INotificationService _notificationService;
         private readonly PythonSocketService _pythonSocketService;
+        private readonly IPositionService _positionService;
 
         public UserController(
             SignInManager<User> signInManager,
@@ -29,7 +31,8 @@ namespace Tiamat.WebApp.Controllers
             IAccountService accountService,
             IAccountSettingService accountSettingService,
             INotificationService notificationService,
-            PythonSocketService pythonSocketService)
+            PythonSocketService pythonSocketService,
+            IPositionService positionService)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -37,32 +40,7 @@ namespace Tiamat.WebApp.Controllers
             _accountSettingService = accountSettingService;
             _notificationService = notificationService;
             _pythonSocketService = pythonSocketService;
-        }
-
-        [HttpGet]
-        public IActionResult Login()
-        {
-            return View();
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> Login(string username, string password)
-        {
-            var result = await _signInManager.PasswordSignInAsync(username, password, false, false);
-            if (result.Succeeded)
-            {
-                TempData["AlertMessage"] = "User logged in successfully!";
-                TempData["AlertTitle"] = "Success";
-                TempData["AlertType"] = "success";
-                return RedirectToAction("Index", "Home");
-            }
-
-
-            TempData["AlertMessage"] = "Invalid login attempt. Please check your credentials.";
-            TempData["AlertTitle"] = "Login Error";
-            TempData["AlertType"] = "error";
-
-            return View();
+            _positionService = positionService;
         }
 
         [HttpPost]
@@ -74,18 +52,79 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult Dashboard()
+        public async Task<IActionResult> Dashboard(int page = 1, int pageSize = 3)
         {
-            return View();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            var positions = await _positionService.GetPositionsOfUserAsync(userId);
+
+            var sevenDaysAgo = DateTime.Now.AddDays(-7);
+            var positionsForChart = positions
+                .Select(p => new PositionChartDto
+                {
+                    Id = p.Id,
+                    AccountId = p.AccountId,
+                    Type = p.Type,
+                    OpenedAtIso = p.OpenedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                })
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"HELLO! Found {positionsForChart.Count} positions in the last 7 days");
+            foreach (var item in positionsForChart)
+            {
+                System.Diagnostics.Debug.WriteLine($"{item.Id} {item.AccountId} {item.Type} {item.OpenedAtIso}");
+            }
+
+            var allNotifications = (await _notificationService.GetAllNotificationsAsync()).ToList();
+            int totalPages = (int)Math.Ceiling(allNotifications.Count / (double)pageSize);
+
+            var model = new DashboardViewModel
+            {
+                Positions = positionsForChart,
+                Notifications = allNotifications,
+                CurrentPage = page,
+                TotalPages = totalPages
+            };
+
+            return View(model);
         }
 
         [HttpGet]
-        public IActionResult ViewAccount(Guid id)
+        public async Task<IActionResult> GetNotifications(int page = 1, int pageSize = 3)
         {
-            var account = _accountService.GetAccountWithPositions(id);
+            var allNotifications = (await _notificationService.GetAllNotificationsAsync())
+                .OrderByDescending(n => n.DateTime)
+                .ToList();
+
+            int totalNotifications = allNotifications.Count;
+            int totalPages = (int)Math.Ceiling(totalNotifications / (double)pageSize);
+
+            var pagedNotifications = allNotifications
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return Json(new
+            {
+                notifications = pagedNotifications.Select(n => new
+                {
+                    n.Id,
+                    n.Title,
+                    n.Description,
+                    n.DateTime,
+                    n.TotalReadCount
+                }),
+                currentPage = page,
+                totalPages = totalPages
+            });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ViewAccount(Guid id)
+        {
+            var account = await _accountService.GetAccountWithPositionsAsync(id);
             if (account == null) return NotFound();
 
-            var accountSettings = _accountSettingService.GetSettingsForUser(account.UserId);
+            var accountSettings = await _accountSettingService.GetSettingsForUserAsync(account.UserId);
 
             var viewModel = new ViewAccountViewModel
             {
@@ -123,70 +162,68 @@ namespace Tiamat.WebApp.Controllers
             return View(viewModel);
         }
 
-
         [HttpPost]
-        public IActionResult ViewAccount(ViewAccountViewModel model)
+        [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
+        public async Task<IActionResult> ViewAccount(ViewAccountViewModel model)
         {
-                if (!ModelState.IsValid)
-                {
-                    var errors = ModelState.Values
-                        .SelectMany(v => v.Errors)
-                        .Select(e => e.ErrorMessage)
-                        .ToList();
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
 
-                    var combinedErrors = string.Join("; ", errors);
+                var combinedErrors = string.Join("; ", errors);
 
-                    TempData["AlertMessage"] = "Failed to update account setting: " + combinedErrors;
-                    TempData["AlertTitle"] = "Validation Error";
-                    TempData["AlertType"] = "error";
-                    ViewBag.AccountSettings = _accountSettingService.GetSettingsForUser(Guid.Empty).ToList();
+                TempData["AlertMessage"] = "Failed to update account setting: " + combinedErrors;
+                TempData["AlertTitle"] = "Validation Error";
+                TempData["AlertType"] = "error";
+                ViewBag.AccountSettings = (await _accountSettingService.GetSettingsForUserAsync(Guid.Empty)).ToList();
 
                 return RedirectToAction("ViewAccount", new { id = model.AccountId });
             }
 
             if (!model.AccountSettingsId.HasValue)
             {
-
                 TempData["AlertMessage"] = "Failed to update account setting: ";
                 TempData["AlertTitle"] = "Validation Error";
                 TempData["AlertType"] = "error";
                 return RedirectToAction("ViewAccount", new { id = model.AccountId });
             }
 
-                var account = _accountService.GetAccountById(model.AccountId);
+            var account = await _accountService.GetAccountByIdAsync(model.AccountId);
             if (account == null) return NotFound();
 
             account.AccountName = model.AccountName;
             if (model.AccountSettingsId.HasValue)
             {
                 account.AccountSettingsId = model.AccountSettingsId.Value;
-                AccountSetting accountSetting = _accountSettingService.GetSettingById(account.AccountSettingsId);
-                _pythonSocketService.EnqueueMessageAsync($"EDIT|{account.Id}|{accountSetting.MaxRiskPerTrade}|{accountSetting.UntradablePeriodMinutes}");
+                AccountSetting accountSetting = await _accountSettingService.GetSettingByIdAsync(account.AccountSettingsId);
+                await _pythonSocketService.EnqueueMessageAsync($"EDIT|{account.Id}|{accountSetting.MaxRiskPerTrade}|{accountSetting.UntradablePeriodMinutes}");
             }
 
             account.LastUpdatedAt = DateTime.UtcNow;
 
-            _accountService.UpdateAccount(account);
+            await _accountService.UpdateAccountAsync(account);
             TempData["AlertMessage"] = "Account updated successfully!";
             TempData["AlertTitle"] = "Success";
             TempData["AlertType"] = "success";
             return RedirectToAction("ViewAccount", new { id = account.Id });
         }
 
-
         [HttpGet]
-        public IActionResult AccountCenter()
+        public async Task<IActionResult> AccountCenter()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-            var settingsForUser = _accountSettingService.GetSettingsForUser(userId);
+            var settingsForUser = await _accountSettingService.GetSettingsForUserAsync(userId);
             var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
             {
                 AccountSettingId = s.AccountSettingId,
                 SettingName = s.SettingName
             }).ToList();
 
-            var accounts = _accountService.GetAllAccounts().Where(a => a.UserId == userId);
+            var accounts = (await _accountService.GetAllAccountsAsync()).Where(a => a.UserId == userId);
 
             var vm = new AccountCenterViewModel
             {
@@ -214,11 +251,11 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult Settings()
+        public async Task<IActionResult> Settings()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-            var userSettings = _accountSettingService.GetSettingsForUser(userId);
+            var userSettings = await _accountSettingService.GetSettingsForUserAsync(userId);
 
             var vm = new AccountSettingCenterViewModel
             {
@@ -243,13 +280,13 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult FilteredSettings()
+        public async Task<IActionResult> FilteredSettings()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
             var settingNameFilter = TempData["SettingNameFilter"] as string ?? "";
 
-            var userSettings = _accountSettingService.GetSettingsForUser(userId);
+            var userSettings = await _accountSettingService.GetSettingsForUserAsync(userId);
 
             if (!string.IsNullOrEmpty(settingNameFilter))
             {
@@ -274,7 +311,7 @@ namespace Tiamat.WebApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult MarkNotificationAsRead(Guid notificationId)
+        public async Task<IActionResult> MarkNotificationAsRead(Guid notificationId)
         {
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdString))
@@ -284,16 +321,16 @@ namespace Tiamat.WebApp.Controllers
 
             var userId = Guid.Parse(userIdString);
 
-            _notificationService.MarkNotificationAsRead(userId, notificationId);
+            await _notificationService.MarkNotificationAsReadAsync(userId, notificationId);
 
-            var newCount = _notificationService.GetUserUnreadNotifications(userId).Count();
+            var newCount = (await _notificationService.GetUserUnreadNotificationsAsync(userId)).Count();
 
             return Json(new { success = true, unreadCount = newCount });
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken] 
-        public IActionResult MarkAllAsRead()
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkAllAsRead()
         {
             var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdString))
@@ -303,9 +340,9 @@ namespace Tiamat.WebApp.Controllers
 
             var userId = Guid.Parse(userIdString);
 
-            _notificationService.MarkAllNotificationsAsRead(userId);
+            await _notificationService.MarkAllNotificationsAsReadAsync(userId);
 
-            var newCount = _notificationService.GetUserUnreadNotifications(userId).Count();
+            var newCount = (await _notificationService.GetUserUnreadNotificationsAsync(userId)).Count();
 
             return Json(new { success = true, unreadCount = newCount });
         }
@@ -317,7 +354,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
-        public IActionResult AddAccountSetting(AccountSettingAddViewModel vm)
+        public async Task<IActionResult> AddAccountSetting(AccountSettingAddViewModel vm)
         {
             if (!ModelState.IsValid)
             {
@@ -330,7 +367,7 @@ namespace Tiamat.WebApp.Controllers
 
                 TempData["AlertMessage"] = "Failed to create account setting: " + combinedErrors;
                 TempData["AlertTitle"] = "Validation Error";
-                TempData["AlertType"] = "error";  
+                TempData["AlertType"] = "error";
 
                 return View(vm);
             }
@@ -342,14 +379,12 @@ namespace Tiamat.WebApp.Controllers
                 UntradablePeriodMinutes = vm.UntradablePeriodMinutes,
                 UserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier))
             };
-            _accountSettingService.CreateSetting(setting);
+            await _accountSettingService.CreateSettingAsync(setting);
             TempData["AlertMessage"] = "Account created successfully!";
             TempData["AlertTitle"] = "Success";
             TempData["AlertType"] = "success";
             return RedirectToAction(nameof(Settings));
         }
-
-
 
         [HttpPost]
         public IActionResult AccountCenter(string? PlatformFilter, string? StatusFilter, string? AccountSettingFilter)
@@ -361,9 +396,8 @@ namespace Tiamat.WebApp.Controllers
             return RedirectToAction(nameof(FilteredAccountCenter));
         }
 
-
         [HttpGet]
-        public IActionResult FilteredAccountCenter()
+        public async Task<IActionResult> FilteredAccountCenter()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
@@ -371,14 +405,14 @@ namespace Tiamat.WebApp.Controllers
             var statusFilter = TempData["StatusFilter"] as string ?? "";
             var accountSettingFilter = TempData["AccountSettingFilter"] as string ?? "";
 
-            var settingsForUser = _accountSettingService.GetSettingsForUser(userId);
+            var settingsForUser = await _accountSettingService.GetSettingsForUserAsync(userId);
             var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
             {
                 AccountSettingId = s.AccountSettingId,
                 SettingName = s.SettingName
             }).ToList();
 
-            var accounts = _accountService.GetAllAccounts().Where(a => a.UserId == userId);
+            var accounts = (await _accountService.GetAllAccountsAsync()).Where(a => a.UserId == userId);
 
             if (!string.IsNullOrEmpty(platformFilter))
             {
@@ -425,23 +459,23 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult AddAccount()
+        public async Task<IActionResult> AddAccount()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            var userSettingsList = _accountSettingService.GetSettingsForUser(userId).ToList();
+            var userSettingsList = (await _accountSettingService.GetSettingsForUserAsync(userId)).ToList();
             ViewBag.AccountSettings = userSettingsList;
 
             return View();
         }
 
         [HttpPost]
-        public IActionResult AddAccount(Account account)
+        public async Task<IActionResult> AddAccount(Account account)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
             if (!ModelState.IsValid)
             {
-                var userSettingsList = _accountSettingService.GetSettingsForUser(userId).ToList();
+                var userSettingsList = (await _accountSettingService.GetSettingsForUserAsync(userId)).ToList();
                 ViewBag.AccountSettings = userSettingsList;
                 return View(account);
             }
@@ -457,14 +491,14 @@ namespace Tiamat.WebApp.Controllers
                 account.CurrentCapital = account.InitialCapital;
                 account.Affiliated_IP = null;
 
-                _accountService.CreateAccount(account);
+                await _accountService.CreateAccountAsync(account);
 
                 return RedirectToAction(nameof(AccountCenter));
             }
             catch (Exception ex)
             {
                 ModelState.AddModelError(string.Empty, $"Error creating the account: {ex.Message}");
-                var userSettingsList = _accountSettingService.GetSettingsForUser(userId).ToList();
+                var userSettingsList = (await _accountSettingService.GetSettingsForUserAsync(userId)).ToList();
                 ViewBag.AccountSettings = userSettingsList;
                 return View(account);
             }

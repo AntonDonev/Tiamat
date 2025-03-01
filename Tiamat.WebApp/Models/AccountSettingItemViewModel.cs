@@ -6,5 +6,6 @@
         public string SettingName { get; set; }
         public int MaxRiskPerTrade { get; set; }
         public int UntradablePeriodMinutes { get; set; }
+        public double RiskReward { get; set; }
     }
 }

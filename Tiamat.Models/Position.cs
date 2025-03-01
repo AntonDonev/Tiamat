@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace Tiamat.Models
 {
@@ -37,6 +38,7 @@ namespace Tiamat.Models
 
         [ForeignKey(nameof(Account))]
         public Guid AccountId { get; set; }
+        [JsonIgnore]
         public Account Account { get; set; } 
 
         [Required]

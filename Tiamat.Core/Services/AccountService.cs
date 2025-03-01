@@ -19,87 +19,105 @@ namespace Tiamat.Core.Services
             _context = context;
         }
 
-        public IEnumerable<Account> GetAllAccounts()
+        public async Task<IEnumerable<Account>> GetAllAccountsAsync()
         {
-            return _context.Accounts
+            return await _context.Accounts
                 .Include(a => a.AccountSetting)
-                .ToList();
+                .ToListAsync();
         }
 
-        public Account GetAccountById(Guid id)
+        public async Task<Account> GetAccountByIdAsync(Guid id)
         {
-            return _context.Accounts
+            return await _context.Accounts
                 .Include(a => a.AccountSetting)
-                .FirstOrDefault(a => a.Id == id);
-        }
-        public Account GetAccountByIp(string Ip)
-        {
-            return _context.Accounts.FirstOrDefault(x => x.Affiliated_IP == Ip);
-        }
-        public void CreateAccount(Account account)
-        {
-            _context.Accounts.Add(account);
-            _context.SaveChanges();
+                .FirstOrDefaultAsync(a => a.Id == id);
         }
 
-        public void UpdateAccount(Account account)
+        public async Task<Account> GetAccountByIpAsync(string Ip)
+        {
+            return await _context.Accounts.FirstOrDefaultAsync(x => x.Affiliated_IP == Ip);
+        }
+
+        public async Task CreateAccountAsync(Account account)
+        {
+            await _context.Accounts.AddAsync(account);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateAccountAsync(Account account)
         {
             _context.Accounts.Update(account);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void DeleteAccount(Guid id)
+        public async Task DeleteAccountAsync(Guid id)
         {
-            var account = _context.Accounts.FirstOrDefault(a => a.Id == id);
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == id);
             if (account != null)
             {
                 _context.Accounts.Remove(account);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
         }
-        public void AccountReview(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail)
+
+        public async Task AccountReviewAsync(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail, string AffiliatedIP)
         {
-            var account = _context.Accounts.FirstOrDefault(a => a.Id == accountId);
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
             if (account != null)
             {
                 account.VPSName = VPSName;
                 account.AdminEmail = AdminEmail;
                 account.Status = newStatus;
-                _context.SaveChanges();
+                account.Affiliated_IP = AffiliatedIP;
+                await _context.SaveChangesAsync();
             }
         }
-        public IEnumerable<Account> FilterAccounts(string platform, AccountStatus? status, Guid? accountSettingId)
+
+        public async Task AccountReviewAsync(AccountStatus newStatus, Guid accountId)
+        {
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
+            if (account != null)
+            {
+                account.Status = newStatus;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<IEnumerable<Account>> FilterAccountsAsync(string platform, AccountStatus? status, Guid? accountSettingId)
         {
             var query = _context.Accounts.AsQueryable();
             if (!string.IsNullOrEmpty(platform)) query = query.Where(a => a.Platform == platform);
             if (status.HasValue) query = query.Where(a => a.Status == status.Value);
             if (accountSettingId.HasValue) query = query.Where(a => a.AccountSettingsId == accountSettingId.Value);
-            return query
+
+            return await query
                 .Include(a => a.AccountSetting)
-                .ToList();
+                .ToListAsync();
         }
 
-        public IEnumerable<(Guid, string?)> AllAccounts()
+        public async Task<IEnumerable<(Guid, string?)>> AllAccountsAsync()
         {
-            return _context.Accounts
+            var accounts = await _context.Accounts
                 .Where(x => x.Status == AccountStatus.Active)
-                .Select(x => new { x.Id, x.Affiliated_IP }) 
-                .AsEnumerable()                         
-                .Select(x => (x.Id, x.Affiliated_IP))      
-                .ToList();
+                .Select(x => new { x.Id, x.Affiliated_IP })
+                .ToListAsync();
+
+            return accounts.Select(x => (x.Id, x.Affiliated_IP)).ToList();
         }
 
-        public int GetActiveAccountsPerUserId(Guid userId)
+        public async Task<int> GetActiveAccountsPerUserIdAsync(Guid userId)
         {
-            return _context.Accounts.Where(x => x.UserId == userId && x.Status == AccountStatus.Active).Count();
+            return await _context.Accounts
+                .Where(x => x.UserId == userId && x.Status == AccountStatus.Active)
+                .CountAsync();
         }
 
-        public Account GetAccountWithPositions(Guid id)
+        public async Task<Account> GetAccountWithPositionsAsync(Guid id)
         {
-            return _context.Accounts
+            return await _context.Accounts
                 .Include(a => a.AccountPositions)
                 .Include(a => a.AccountSetting)
-                .FirstOrDefault(a => a.Id == id);
+                .FirstOrDefaultAsync(a => a.Id == id);
         }
     }
 }

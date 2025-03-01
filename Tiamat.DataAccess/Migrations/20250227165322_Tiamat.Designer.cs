@@ -12,7 +12,7 @@ using Tiamat.DataAccess;
 namespace Tiamat.DataAccess.Migrations
 {
     [DbContext(typeof(TiamatDbContext))]
-    [Migration("20250221062532_Tiamat")]
+    [Migration("20250227165322_Tiamat")]
     partial class Tiamat
     {
         /// <inheritdoc />
@@ -280,6 +280,9 @@ namespace Tiamat.DataAccess.Migrations
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TotalReadCount")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

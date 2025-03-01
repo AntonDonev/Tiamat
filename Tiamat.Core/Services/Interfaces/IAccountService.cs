@@ -10,19 +10,19 @@ namespace Tiamat.Core.Services.Interfaces
 {
     public interface IAccountService
     {
-        IEnumerable<Account> GetAllAccounts();
-        Account GetAccountById(Guid id);
-        void CreateAccount(Account account);
-        void UpdateAccount(Account account);
-        void DeleteAccount(Guid id);
-        IEnumerable<Account> FilterAccounts(string platform, AccountStatus? status, Guid? accountSettingId);
-        public int GetActiveAccountsPerUserId(Guid userId);
+        Task<IEnumerable<Account>> GetAllAccountsAsync();
+        Task<Account> GetAccountByIdAsync(Guid id);
+        Task CreateAccountAsync(Account account);
+        Task UpdateAccountAsync(Account account);
+        Task DeleteAccountAsync(Guid id);
+        Task<IEnumerable<Account>> FilterAccountsAsync(string platform, AccountStatus? status, Guid? accountSettingId);
+        Task<int> GetActiveAccountsPerUserIdAsync(Guid userId);
+        Task AccountReviewAsync(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail, string AffiliatedIP);
 
-        public void AccountReview(AccountStatus newStatus, Guid accountId, string VPSName, string AdminEmail);
+        Task AccountReviewAsync(AccountStatus newStatus, Guid accountId);
 
-        public IEnumerable<(Guid, string?)> AllAccounts();
-        public Account GetAccountByIp(string Ip);
-
-        public Account GetAccountWithPositions(Guid id);
+        Task<IEnumerable<(Guid, string?)>> AllAccountsAsync();
+        Task<Account> GetAccountByIpAsync(string Ip);
+        Task<Account> GetAccountWithPositionsAsync(Guid id);
     }
 }

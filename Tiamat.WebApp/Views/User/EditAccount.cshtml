@@ -4,8 +4,20 @@
 @{
     ViewData["Title"] = "Редактиране на акаунт";
 }
-
+<style>
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+</style>
 <link rel="stylesheet" href="~/css/addAccountStyle.css" />
+
+
+<div id="particles-js"></div>
 
 <div asp-validation-summary="All" class="text-danger"></div>
 
@@ -39,3 +51,12 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="~/js/particles-init.js"></script>
+
+    @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}

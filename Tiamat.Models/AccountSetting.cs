@@ -12,33 +12,41 @@ namespace Tiamat.Models
     {
         public AccountSetting(string settingName, int maxRiskPerTrade, int untradablePeriodMinutes, User? user)
         {
+            AccountSettingId = Guid.NewGuid();
             SettingName = settingName;
             MaxRiskPerTrade = maxRiskPerTrade;
             UntradablePeriodMinutes = untradablePeriodMinutes;
-            UserId = user.Id;
+            UserId = user?.Id;
             User = user;
+            Accounts = new List<Account>();
         }
-        public AccountSetting() { }
+
+        public AccountSetting()
+        {
+            Accounts = new List<Account>();
+        }
+
         [Key]
         public Guid AccountSettingId { get; set; }
 
         [Required]
         [MaxLength(50)]
-        public string SettingName { get; set; } 
+        [Display(Name = "Setting Name")]
+        public string SettingName { get; set; }
 
         [Required]
-        public int MaxRiskPerTrade { get; set; } 
+        [Range(1, 100, ErrorMessage = "Максималният риск за сделка трябва да бъде между 1 и 100 процента")]
+        [Display(Name = "Max Risk Per Trade (%)")]
+        public int MaxRiskPerTrade { get; set; }
 
         [Required]
+        [Range(0, int.MaxValue, ErrorMessage = "Периодът, в който не може да се търгува, трябва да бъде положителна стойност")]
+        [Display(Name = "Untradable Period (minutes)")]
         public int UntradablePeriodMinutes { get; set; }
-
 
         [ForeignKey(nameof(User))]
         public Guid? UserId { get; set; }
-
         public User? User { get; set; }
-
-        public ICollection<Account> Accounts { get; set; }
-
+        public virtual ICollection<Account> Accounts { get; set; }
     }
 }

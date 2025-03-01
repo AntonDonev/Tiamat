@@ -17,23 +17,23 @@ namespace Tiamat.Core.Services
             _context = context;
         }
 
-        public IEnumerable<Notification> GetAllNotifications()
+        public async Task<IEnumerable<Notification>> GetAllNotificationsAsync()
         {
-            return _context.Notifications
+            return await _context.Notifications
                 .Include(n => n.NotificationUsers)
                     .ThenInclude(nu => nu.User)
-                .ToList();
+                .ToListAsync();
         }
 
-        public Notification GetNotificationById(Guid id)
+        public async Task<Notification> GetNotificationByIdAsync(Guid id)
         {
-            return _context.Notifications
+            return await _context.Notifications
                 .Include(n => n.NotificationUsers)
                     .ThenInclude(nu => nu.User)
-                .FirstOrDefault(n => n.Id == id);
+                .FirstOrDefaultAsync(n => n.Id == id);
         }
 
-        public void CreateNotification(Notification notification, IEnumerable<Guid> userIds)
+        public async Task CreateNotificationAsync(Notification notification, IEnumerable<Guid> userIds)
         {
             if (notification == null)
                 throw new ArgumentNullException(nameof(notification));
@@ -51,14 +51,40 @@ namespace Tiamat.Core.Services
                 UserId = userId,
                 ReadAt = null,
                 IsRead = false
-
             }).ToList();
 
-            _context.Notifications.Add(notification);
-            _context.SaveChanges();
+            notification.DateTime = DateTime.UtcNow;
+
+            await _context.Notifications.AddAsync(notification);
+            await _context.SaveChangesAsync();
         }
 
-        public void UpdateNotification(Notification notification, IEnumerable<Guid> userIds)
+        public async Task CreateNotificationEveryoneAsync(Notification notification)
+        {
+            if (notification == null)
+                throw new ArgumentNullException(nameof(notification));
+
+            var allUserIds = await _context.Users.Select(u => u.Id).ToListAsync();
+
+            var notificationUsers = allUserIds
+                .Select(userId => new NotificationUser
+                {
+                    Id = Guid.NewGuid(),
+                    NotificationId = notification.Id,
+                    UserId = userId,
+                    ReadAt = null,
+                    IsRead = false
+                })
+                .ToList();
+
+            notification.NotificationUsers = notificationUsers;
+            notification.DateTime = DateTime.UtcNow;
+
+            await _context.Notifications.AddAsync(notification);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateNotificationAsync(Notification notification, IEnumerable<Guid> userIds)
         {
             if (notification == null)
                 throw new ArgumentNullException(nameof(notification));
@@ -66,12 +92,12 @@ namespace Tiamat.Core.Services
             if (userIds == null)
                 userIds = Enumerable.Empty<Guid>();
 
-            var existingNotification = _context.Notifications
+            var existingNotification = await _context.Notifications
                 .Include(n => n.NotificationUsers)
-                .FirstOrDefault(n => n.Id == notification.Id);
+                .FirstOrDefaultAsync(n => n.Id == notification.Id);
 
             if (existingNotification == null)
-                return; 
+                return;
 
             existingNotification.Title = notification.Title;
             existingNotification.Description = notification.Description;
@@ -86,14 +112,14 @@ namespace Tiamat.Core.Services
                 UserId = userId
             }).ToList();
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void DeleteNotification(Guid notificationId)
+        public async Task DeleteNotificationAsync(Guid notificationId)
         {
-            var notification = _context.Notifications
+            var notification = await _context.Notifications
                 .Include(n => n.NotificationUsers)
-                .FirstOrDefault(n => n.Id == notificationId);
+                .FirstOrDefaultAsync(n => n.Id == notificationId);
 
             if (notification == null)
                 return;
@@ -101,64 +127,77 @@ namespace Tiamat.Core.Services
             _context.NotificationUsers.RemoveRange(notification.NotificationUsers);
 
             _context.Notifications.Remove(notification);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public IEnumerable<NotificationUser> GetUserNotificationsUser(Guid? userId)
+        public async Task<IEnumerable<NotificationUser>> GetUserNotificationsUserAsync(Guid? userId)
         {
-            return _context.NotificationUsers
+            return await _context.NotificationUsers
                 .Include(nu => nu.Notification)
                 .Where(nu => nu.UserId == userId)
                 .OrderByDescending(nu => nu.Notification.DateTime)
-                .ToList();
+                .ToListAsync();
         }
 
-        public IEnumerable<Notification> GetUserNotifications(Guid userId)
+        public async Task<IEnumerable<Notification>> GetUserNotificationsAsync(Guid userId)
         {
-            return _context.NotificationUsers
+            return await _context.NotificationUsers
                 .Include(nu => nu.Notification)
                 .Where(nu => nu.UserId == userId)
                 .OrderByDescending(nu => nu.Notification.DateTime)
                 .Select(nu => nu.Notification)
-                .ToList();
+                .ToListAsync();
         }
 
-        public IEnumerable<Notification> GetUserUnreadNotifications(Guid userId)
+        public async Task<IEnumerable<Notification>> GetUserUnreadNotificationsAsync(Guid userId)
         {
-            return _context.NotificationUsers
+            return await _context.NotificationUsers
                 .Include(nu => nu.Notification)
                 .Where(nu => nu.UserId == userId && !nu.IsRead)
                 .OrderByDescending(nu => nu.Notification.DateTime)
                 .Select(nu => nu.Notification)
-                .ToList();
+                .ToListAsync();
         }
 
-        public void MarkNotificationAsRead(Guid userId, Guid notificationId)
+        public async Task MarkNotificationAsReadAsync(Guid userId, Guid notificationId)
         {
-            var notificationUser = _context.NotificationUsers
-                .FirstOrDefault(nu => nu.UserId == userId && nu.NotificationId == notificationId);
+            var notificationUser = await _context.NotificationUsers
+                .FirstOrDefaultAsync(nu => nu.UserId == userId && nu.NotificationId == notificationId);
 
             if (notificationUser != null && !notificationUser.IsRead)
             {
+                var notification = await _context.Notifications.FirstOrDefaultAsync(x => x.Id == notificationUser.NotificationId);
+                if (notification != null)
+                {
+                    notification.TotalReadCount++;
+                }
+
                 notificationUser.IsRead = true;
                 notificationUser.ReadAt = DateTime.UtcNow;
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
         }
 
-        public void MarkAllNotificationsAsRead(Guid userId)
+        public async Task MarkAllNotificationsAsReadAsync(Guid userId)
         {
-            var notificationUsers = _context.NotificationUsers
+            var notificationUsers = await _context.NotificationUsers
                 .Where(nu => nu.UserId == userId && !nu.IsRead)
-                .ToList();
+                .ToListAsync();
 
             foreach (var nu in notificationUsers)
             {
                 nu.IsRead = true;
+
+                var notification = await _context.Notifications.FirstOrDefaultAsync(x => x.Id == nu.NotificationId);
+                if (notification != null)
+                {
+                    notification.TotalReadCount++;
+                }
+
                 nu.ReadAt = DateTime.UtcNow;
             }
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
     }
 }

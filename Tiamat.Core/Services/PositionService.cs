@@ -10,6 +10,7 @@ using Tiamat.Core.Services.Interfaces;
 using Tiamat.DataAccess;
 using Tiamat.Models;
 
+
 namespace Tiamat.Core.Services
 {
     public class PositionService : IPositionService
@@ -20,9 +21,10 @@ namespace Tiamat.Core.Services
         public PositionService(TiamatDbContext context, ILogger<PositionService> logger)
         {
             _context = context;
-            _logger = logger;   
+            _logger = logger;
         }
-        public void CreatePosition(string Symbol, string Type, Account account, decimal Size, decimal Risk, DateTime OpenedAt, string Id)
+
+        public async Task CreatePositionAsync(string Symbol, string Type, Account account, decimal Size, decimal Risk, DateTime OpenedAt, string Id)
         {
             Position position = new Position();
             position.Id = Id;
@@ -35,15 +37,15 @@ namespace Tiamat.Core.Services
             position.Result = null;
             position.OpenedAt = OpenedAt;
 
-            _context.Positions.Add(position);
-            _context.SaveChanges();
+            await _context.Positions.AddAsync(position);
+            await _context.SaveChangesAsync();
         }
 
-        public void ClosePosition(string Id, decimal profit, decimal currentCapital, DateTime ClosedAt, string FromIp)
+        public async Task ClosePositionAsync(string Id, decimal profit, decimal currentCapital, DateTime ClosedAt, string FromIp)
         {
-            var position = _context.Positions
+            var position = await _context.Positions
                 .Include(p => p.Account)
-                .FirstOrDefault(x => x.Id == Id && x.Account.Affiliated_IP == FromIp);
+                .FirstOrDefaultAsync(x => x.Id == Id && x.Account.Affiliated_IP == FromIp);
 
             if (position == null)
             {
@@ -53,8 +55,8 @@ namespace Tiamat.Core.Services
 
             position.Result = profit;
 
-            var account = _context.Accounts
-                .FirstOrDefault(x => x.Id == position.AccountId && x.Affiliated_IP == FromIp);
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(x => x.Id == position.AccountId && x.Affiliated_IP == FromIp);
 
             if (account == null)
             {
@@ -66,7 +68,21 @@ namespace Tiamat.Core.Services
             }
 
             position.ClosedAt = ClosedAt;
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<Position>> GetPositionsOfUserAsync(Guid userId)
+        {
+            var userAccounts = await _context.Accounts
+                .Where(x => x.UserId == userId)
+                .Select(a => a.Id)
+                .ToListAsync();
+
+            var positions = await _context.Positions
+                .Where(p => userAccounts.Contains(p.AccountId))
+                .ToListAsync();
+
+            return positions;
         }
     }
 }

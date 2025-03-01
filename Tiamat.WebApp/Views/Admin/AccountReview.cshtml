@@ -1,7 +1,7 @@
 ﻿@model IEnumerable<Tiamat.Models.Account>
 @{
     Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
-    ViewData["Title"] = "Pending Accounts";
+    ViewData["Title"] = "Изчакващи акаунти";
 }
 
 @functions {
@@ -17,25 +17,35 @@
     }
 }
 
+<style>
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+</style>
+
 <link rel="stylesheet" href="~/css/accountcenter.css" />
+<div id="particles-js"></div>
 
 <div class="account-list-container">
-    <h1 class="list-title">Pending Accounts</h1>
-
+    <h1 class="list-title">Изчакващи акаунти</h1>
 
     <div class="accounts-card">
         <div class="accounts-card-header d-flex justify-content-between align-items-center">
-            <h2>Review Pending</h2>
+            <h2>Преглед на изчакващи</h2>
             <button class="btn btn-secondary" id="toggleListButton">
-                Toggle Pending Accounts
+                Превключване на изчакващи акаунти
             </button>
         </div>
 
         <div class="accounts-card-body">
-
             @if (!Model.Any())
             {
-                <div class="no-accounts">No pending accounts found.</div>
+                <div class="no-accounts">Няма намерени изчакващи акаунти.</div>
             }
             else
             {
@@ -43,13 +53,13 @@
                     <table class="account-table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Platform</th>
-                                <th>Broker Server</th>
-                                <th>Broker Login</th>
-                                <th>Broker Password</th>
-                                <th>Created At</th>
-                                <th class="action-cell">Actions</th>
+                                <th>Име</th>
+                                <th>Платформа</th>
+                                <th>Брокерски сървър</th>
+                                <th>Брокерски логин</th>
+                                <th>Брокерска парола</th>
+                                <th>Създаден на</th>
+                                <th class="action-cell">Действия</th>
                             </tr>
                         </thead>
                         <tbody id="pendingAccountsTbody">
@@ -61,9 +71,10 @@
                                     <td>@account.BrokerServer</td>
                                     <td>@account.BrokerLogin</td>
                                     <td>
-                                        <span class="broker-password masked"
-                                              data-password="@account.BrokerPassword">
-                                            [CENSORED]
+                                        <span class="broker-password"
+                                              data-password="@account.BrokerPassword"
+                                              style="cursor: pointer;">
+                                            [Копирай парола]
                                         </span>
                                     </td>
                                     <td>@account.CreatedAt.ToShortDateString()</td>
@@ -73,14 +84,14 @@
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#acceptNotifyModal"
                                                 data-bs-accountid="@account.Id">
-                                            Accept
+                                            Приемане
                                         </button>
                                         <button type="button"
                                                 class="btn-action btn-deny"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#denyNotifyModal"
                                                 data-bs-accountid="@account.Id">
-                                            Deny
+                                            Отказване
                                         </button>
                                     </td>
                                 </tr>
@@ -88,10 +99,8 @@
                         </tbody>
                     </table>
                 </div>
-                <!-- This message shows when the list is toggled "off" -->
-                <div id="toggledMessage"
-                     style="display: none; margin-top: 1rem; font-style: italic;">
-                    The pending accounts list is currently toggled off.
+                <div id="toggledMessage" style="display: none; margin-top: 1rem; font-style: italic;">
+                    Списъкът с изчакващи акаунти е изключен в момента.
                 </div>
             }
         </div>
@@ -99,55 +108,38 @@
 </div>
 
 <!-- Deny Modal -->
-<div class="modal fade"
-     id="denyNotifyModal"
-     tabindex="-1"
-     aria-labelledby="denyNotifyModalLabel"
-     aria-hidden="true">
+<div class="modal fade" id="denyNotifyModal" tabindex="-1" aria-labelledby="denyNotifyModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="denyNotifyModalLabel">Application Denied</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                <h5 class="modal-title" id="denyNotifyModalLabel">Отказан кандидат</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="denyNotifyForm"
-                      asp-action="DenyAccountWithNotification"
-                      asp-controller="Admin"
-                      method="post">
-
+                <form id="denyNotifyForm" asp-action="DenyAccountWithNotification" asp-controller="Admin" method="post">
                     <input type="hidden" name="Id" id="denyAccountIdHidden" />
-                    <input type="hidden" name="Title" value="Application Denied" />
+                    <input type="hidden" name="Title" value="Отказан кандидат" />
 
                     <div class="mb-3">
                         <label for="notificationMessage" class="form-label fw-bold">
-                            Reason / Message
+                            Причина / Съобщение
                         </label>
-                        <textarea class="form-control"
-                                  id="notificationMessage"
-                                  name="Message"
-                                  rows="4"
-                                  placeholder="Write a reason for denial..."></textarea>
+                        <textarea class="form-control" id="notificationMessage" name="Message" rows="4" placeholder="Напишете причина за отказ..."></textarea>
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               id="useDefaultDenyMessage"
-                               name="useDefaultDenyMessage" />
+                        <input class="form-check-input" type="checkbox" id="useDefaultDenyMessage" name="useDefaultDenyMessage" />
                         <label class="form-check-label" for="useDefaultDenyMessage">
-                            Use default denial message
+                            Използвай стандартно съобщение за отказ
                         </label>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary"
-                                data-bs-dismiss="modal">
-                            Cancel
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Отказ
                         </button>
                         <button type="submit" class="btn btn-primary">
-                            Send
+                            Изпращане
                         </button>
                     </div>
                 </form>
@@ -156,53 +148,47 @@
     </div>
 </div>
 
-<div class="modal fade"
-     id="acceptNotifyModal"
-     tabindex="-1"
-     aria-labelledby="acceptNotifyModalLabel"
-     aria-hidden="true">
+<!-- Accept Modal -->
+<div class="modal fade" id="acceptNotifyModal" tabindex="-1" aria-labelledby="acceptNotifyModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="acceptNotifyModalLabel">Application Approved</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                <h5 class="modal-title" id="acceptNotifyModalLabel">Одобрен кандидат</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="acceptNotifyForm"
-                      asp-action="ApproveAccount"
-                      asp-controller="Admin"
-                      method="post">
-
+                <form id="acceptNotifyForm" asp-action="ApproveAccount" asp-controller="Admin" method="post">
                     <input type="hidden" name="Id" id="acceptAccountIdHidden" />
-                    <input type="hidden" name="Title" value="Application Accepted" />
+                    <input type="hidden" name="Title" value="Приет кандидат" />
 
                     <div class="mb-3">
-                        <label for="acceptMessage" class="form-label fw-bold">Message</label>
-                        <textarea class="form-control"
-                                  id="acceptMessage"
-                                  name="Message"
-                                  rows="4"
-                                  placeholder="Write an acceptance message..."></textarea>
+                        <label for="vpsName" class="form-label fw-bold">Име на VPS</label>
+                        <input type="text" class="form-control" id="vpsName" name="VPSName" placeholder="Въведете име на VPS..." />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="affiliatedIP" class="form-label fw-bold">Свързан IP</label>
+                        <input type="text" class="form-control" id="affiliatedIP" name="AffiliatedIP" placeholder="Въведете свързан IP..." />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="acceptMessage" class="form-label fw-bold">Съобщение</label>
+                        <textarea class="form-control" id="acceptMessage" name="Message" rows="4" placeholder="Напишете съобщение за одобрение..."></textarea>
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               id="useDefaultAcceptMessage"
-                               name="useDefaultMessage" />
+                        <input class="form-check-input" type="checkbox" id="useDefaultAcceptMessage" name="useDefaultMessage" />
                         <label class="form-check-label" for="useDefaultAcceptMessage">
-                            Use default acceptance message
+                            Използвай стандартно съобщение за одобрение
                         </label>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary"
-                                data-bs-dismiss="modal">
-                            Cancel
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Отказ
                         </button>
                         <button type="submit" class="btn btn-primary">
-                            Send
+                            Изпращане
                         </button>
                     </div>
                 </form>
@@ -212,22 +198,40 @@
 </div>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="~/js/particles-init.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var passwordEls = document.querySelectorAll('.broker-password');
-            passwordEls.forEach(function (el) {
-                el.addEventListener('click', function () {
-                    var realPwd = el.getAttribute('data-password');
-                    if (el.classList.contains('masked')) {
-                        el.classList.remove('masked');
-                        el.classList.add('unmasked');
-                        el.textContent = realPwd;
-                    } else {
-                        el.classList.remove('unmasked');
-                        el.classList.add('masked');
-                        el.textContent = "[CENSORED]";
-                    }
-                });
+            var tbody = document.getElementById('pendingAccountsTbody');
+            tbody.addEventListener('click', function (event) {
+                if (event.target && event.target.matches('.broker-password')) {
+                    var realPwd = event.target.getAttribute('data-password');
+                    navigator.clipboard.writeText(realPwd)
+                        .then(function () {
+                            iziToast.success({
+                                title: 'Копирано!',
+                                message: 'Паролата е копирана в клипборда!',
+                                position: 'topRight'
+                            });
+                        })
+                        .catch(function (err) {
+                            console.error('Неуспешно копиране на парола: ', err);
+                        });
+                }
+            });
+
+            var toggleButton = document.getElementById('toggleListButton');
+            var originalTbodyHTML = tbody.innerHTML;
+            var toggledMsg = document.getElementById('toggledMessage');
+
+            toggleButton.addEventListener('click', function () {
+                if (tbody.innerHTML.trim() !== "") {
+                    tbody.innerHTML = "";
+                    toggledMsg.style.display = "block";
+                } else {
+                    tbody.innerHTML = originalTbodyHTML;
+                    toggledMsg.style.display = "none";
+                }
             });
 
             var denyNotifyModal = document.getElementById('denyNotifyModal');
@@ -238,10 +242,11 @@
                 document.getElementById('notificationMessage').value = "";
                 document.getElementById('useDefaultDenyMessage').checked = false;
             });
+
             document.getElementById('useDefaultDenyMessage').addEventListener('change', function () {
                 var messageArea = document.getElementById('notificationMessage');
                 if (this.checked) {
-                    messageArea.value = "After careful consideration, we regret to inform you that your application has been denied. We appreciate your interest, and if you have any questions or would like to reapply in the future, please do not hesitate to contact our support team.";
+                    messageArea.value = "След внимателно разглеждане, съжаляваме да ви информираме, че вашето заявление е отхвърлено. Ценим вашия интерес и ако имате въпроси или бихте искали да кандидатствате отново в бъдеще, не се колебайте да се свържете с нашия екип за поддръжка.";
                 } else {
                     messageArea.value = "";
                 }
@@ -253,32 +258,21 @@
                 var accountId = button.getAttribute('data-bs-accountid');
                 document.getElementById('acceptAccountIdHidden').value = accountId;
                 document.getElementById('acceptMessage').value = "";
+                document.getElementById('vpsName').value = "";
+                document.getElementById('affiliatedIP').value = "";
                 document.getElementById('useDefaultAcceptMessage').checked = false;
             });
+
             document.getElementById('useDefaultAcceptMessage').addEventListener('change', function () {
                 var messageArea = document.getElementById('acceptMessage');
                 if (this.checked) {
-                    messageArea.value = "Your account has been approved! Welcome on board. We appreciate your trust in our platform and look forward to supporting you.";
+                    messageArea.value = "Вашият акаунт е одобрен! Добре дошли на борда. Ценим вашето доверие и се надяваме да ви върви.";
                 } else {
                     messageArea.value = "";
-                }
-            });
-
-            var toggleButton = document.getElementById('toggleListButton');
-            var tbody = document.getElementById('pendingAccountsTbody');
-            var originalTbodyHTML = tbody ? tbody.innerHTML : "";
-            var toggledMsg = document.getElementById('toggledMessage');
-
-            toggleButton.addEventListener('click', function () {
-
-                if (tbody.innerHTML.trim() !== "") {
-                    tbody.innerHTML = "";
-                    toggledMsg.style.display = "block";
-                } else {
-                    tbody.innerHTML = originalTbodyHTML;
-                    toggledMsg.style.display = "none";
                 }
             });
         });
     </script>
 }
+
+@Html.Partial("_IziToastPartial")

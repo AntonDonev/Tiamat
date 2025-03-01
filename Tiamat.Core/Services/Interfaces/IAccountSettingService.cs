@@ -9,12 +9,11 @@ namespace Tiamat.Core.Services.Interfaces
 {
     public interface IAccountSettingService
     {
-        IEnumerable<AccountSetting> GetAllSettings();
-        AccountSetting GetSettingById(Guid id);
-        void CreateSetting(AccountSetting setting);
-        void UpdateSetting(AccountSetting setting);
-        void DeleteSetting(Guid id);
-        IEnumerable<AccountSetting> GetSettingsForUser(Guid userId);
-
+        Task<IEnumerable<AccountSetting>> GetAllSettingsAsync();
+        Task<AccountSetting> GetSettingByIdAsync(Guid id);
+        Task CreateSettingAsync(AccountSetting setting);
+        Task UpdateSettingAsync(AccountSetting setting);
+        Task DeleteSettingAsync(Guid id);
+        Task<IEnumerable<AccountSetting>> GetSettingsForUserAsync(Guid userId);
     }
 }

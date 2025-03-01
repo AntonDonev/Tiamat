@@ -1,0 +1,247 @@
+﻿@model Tiamat.WebApp.Models.NotificationViewModel
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Административен център за известия";
+}
+
+<style>
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+
+    .dark-card {
+        background-color: #1a1a1a;
+        border: 1px solid #333333;
+        border-radius: 10px;
+    }
+
+        .dark-card .card-title {
+            color: #ffffff;
+        }
+
+    .dark-theme .form-control {
+        background-color: #2c2c2c;
+        color: #eaeaea;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+        padding: 0.375rem 0.5rem;
+    }
+
+        .dark-theme .form-control::placeholder {
+            color: #777;
+        }
+
+        .dark-theme .form-control:focus {
+            background-color: #2c2c2c;
+            border-color: #555 !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+    .dark-theme .input-group-text {
+        background-color: #2c2c2c;
+        border: 1px solid #3a3a3a;
+        color: #ddd;
+        border-radius: 6px 0 0 6px;
+        padding: 0.375rem 0.4rem;
+        margin-right: -1px;
+    }
+
+    .dark-theme .btn-primary {
+        background-color: #2c2c2c;
+        border: 1px solid #3a3a3a;
+        color: #ffffff;
+        border-radius: 6px;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+        .dark-theme .btn-primary:hover {
+            background-color: #3a3a3a;
+            border-color: #444;
+            color: #ffffff;
+        }
+
+    .dark-theme .text-danger {
+        color: #ff5555 !important;
+    }
+
+    .chips-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 8px;
+        cursor: text;
+        background-color: #2c2c2c;
+        border: 1px solid #3a3a3a;
+        border-radius: 6px;
+    }
+
+        .chips-container input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #eaeaea;
+            flex: 1;
+            min-width: 80px;
+        }
+
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        background-color: #e0e0e0;
+        color: #333;
+        padding: 4px 8px;
+        border-radius: 16px;
+        font-size: 0.9rem;
+    }
+
+        .chip .remove-chip {
+            margin-left: 8px;
+            cursor: pointer;
+            color: #666;
+        }
+</style>
+
+<link rel="stylesheet" href="~/css/loginStyle.css" />
+
+<div id="particles-js"></div>
+
+<div class="container-fluid py-0 dark-bg dark-theme d-flex align-items-start justify-content-center"
+     style="position: relative; padding-top: 4rem;">
+    <div class="row justify-content-center w-100">
+        <div class="col-12 col-md-8 col-lg-5">
+
+            <div class="text-center mb-3">
+                <h1 class="display-5 fw-bold mb-2">Административен център за известия</h1>
+                <p class="lead">Изпратете ново известие до конкретни потребители или всички.</p>
+            </div>
+
+            <div class="card dark-card shadow px-3 py-4">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Изпращане на ново известие</h2>
+
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success">@TempData["Success"]</div>
+                    }
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger">@TempData["Error"]</div>
+                    }
+
+                    <form asp-action="Notification" asp-controller="Admin" method="post">
+
+                        <div class="mb-3 position-relative">
+                            <label for="Title" class="form-label">Заглавие</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-card-text"></i>
+                                </span>
+                                <input type="text" name="Title" class="form-control"
+                                       placeholder="Въведете заглавие на известието"
+                                       required />
+                            </div>
+                        </div>
+
+                        <div class="mb-3 position-relative">
+                            <label for="Description" class="form-label">Съобщение</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-chat-left-dots"></i>
+                                </span>
+                                <textarea name="Description" class="form-control" rows="3"
+                                          placeholder="Вашето съобщение" required></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 position-relative">
+                            <label class="form-label">Получатели</label>
+                            <input type="hidden" name="Targets" id="recipientsHidden" />
+
+                            <div id="chipsContainer" class="chips-container" tabindex="0">
+                                <input type="text" id="chipsInput" placeholder="@@everyone @@потребител1 @@потребител2 или @@имейл" />
+                            </div>
+                            <small class="text-muted">
+                                Напишете множество получатели, разделени с интервал/въвеждане. Дубликатите се игнорират.
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-3">Изпращане</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="~/js/particles-init.js"></script>
+
+    @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+
+    <script>
+        let chipsArray = [];
+        const chipsContainer = document.getElementById('chipsContainer');
+        const chipsInput = document.getElementById('chipsInput');
+        const recipientsHidden = document.getElementById('recipientsHidden');
+
+        chipsContainer.addEventListener('click', () => {
+            chipsInput.focus();
+        });
+
+        chipsInput.addEventListener('keydown', function (e) {
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                addChip(chipsInput.value.trim());
+            }
+        });
+
+        chipsInput.addEventListener('blur', function () {
+            if (chipsInput.value.trim() !== '') {
+                addChip(chipsInput.value.trim());
+            }
+        });
+
+        function addChip(value) {
+            if (!value) return;
+            let lowerValue = value.toLowerCase();
+            if (chipsArray.map(v => v.toLowerCase()).includes(lowerValue)) {
+                chipsInput.value = '';
+                return;
+            }
+            chipsArray.push(value);
+            createChipElement(value);
+            chipsInput.value = '';
+            updateHiddenField();
+        }
+
+        function createChipElement(text) {
+            const chip = document.createElement('div');
+            chip.classList.add('chip');
+            chip.innerText = text;
+
+            const removeBtn = document.createElement('span');
+            removeBtn.classList.add('remove-chip');
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', () => {
+                chipsContainer.removeChild(chip);
+                chipsArray = chipsArray.filter(c => c !== text);
+                updateHiddenField();
+            });
+            chip.appendChild(removeBtn);
+            chipsContainer.insertBefore(chip, chipsInput);
+        }
+
+        function updateHiddenField() {
+            recipientsHidden.value = chipsArray.join(' ');
+        }
+    </script>
+}

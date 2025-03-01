@@ -19,49 +19,49 @@ namespace Tiamat.Core.Services
             _context = context;
         }
 
-        public IEnumerable<AccountSetting> GetAllSettings()
+        public async Task<IEnumerable<AccountSetting>> GetAllSettingsAsync()
         {
-            return _context.AccountSettings
+            return await _context.AccountSettings
                 .Include(s => s.User)
                 .Include(s => s.Accounts)
-                .ToList();
+                .ToListAsync();
         }
 
-        public AccountSetting GetSettingById(Guid id)
+        public async Task<AccountSetting> GetSettingByIdAsync(Guid id)
         {
-            return _context.AccountSettings
+            return await _context.AccountSettings
                 .Include(s => s.User)
                 .Include(s => s.Accounts)
-                .FirstOrDefault(s => s.AccountSettingId == id);
+                .FirstOrDefaultAsync(s => s.AccountSettingId == id);
         }
 
-        public IEnumerable<AccountSetting> GetSettingsForUser(Guid userId)
+        public async Task<IEnumerable<AccountSetting>> GetSettingsForUserAsync(Guid userId)
         {
-            return _context.AccountSettings
-                .Where(s => s.UserId == userId || s.UserId == null) 
+            return await _context.AccountSettings
+                .Where(s => s.UserId == userId || s.UserId == null)
                 .Include(s => s.Accounts)
-                .ToList();
+                .ToListAsync();
         }
 
-        public void CreateSetting(AccountSetting setting)
+        public async Task CreateSettingAsync(AccountSetting setting)
         {
-            _context.AccountSettings.Add(setting);
-            _context.SaveChanges();
+            await _context.AccountSettings.AddAsync(setting);
+            await _context.SaveChangesAsync();
         }
 
-        public void UpdateSetting(AccountSetting setting)
+        public async Task UpdateSettingAsync(AccountSetting setting)
         {
             _context.AccountSettings.Update(setting);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
-        public void DeleteSetting(Guid id)
+        public async Task DeleteSettingAsync(Guid id)
         {
-            var setting = _context.AccountSettings.FirstOrDefault(s => s.AccountSettingId == id);
+            var setting = await _context.AccountSettings.FirstOrDefaultAsync(s => s.AccountSettingId == id);
             if (setting != null)
             {
                 _context.AccountSettings.Remove(setting);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
         }
     }

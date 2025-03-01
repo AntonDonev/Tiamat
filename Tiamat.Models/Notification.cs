@@ -12,8 +12,8 @@ namespace Tiamat.Models
         public Guid Id { get; set; }
         public string Title { get; set; }
         public string Description { get; set; }
+        public int TotalReadCount { get; set; }
         public DateTime DateTime { get; set; }
-
         public ICollection<NotificationUser> NotificationUsers { get; set; }
 
         public Notification()

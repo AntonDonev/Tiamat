@@ -14,7 +14,7 @@ namespace Tiamat.Utility.Services
     public class PythonSocketService : BackgroundService
     {
         private readonly ILogger<PythonSocketService> _logger;
-        private readonly string _serverAddress = "34.174.186.157";
+        private readonly string _serverAddress = "34.174.67.13";
         private readonly int _serverPort = 12346;
         private readonly IServiceScopeFactory _scopeFactory;
         private TcpClient _client;
@@ -55,7 +55,8 @@ namespace Tiamat.Utility.Services
                         using (var scope = _scopeFactory.CreateScope())
                         {
                             var accountService = scope.ServiceProvider.GetRequiredService<IAccountService>();
-                            foreach (var (id, ip) in accountService.AllAccounts())
+                            var accounts = await accountService.AllAccountsAsync();
+                            foreach (var (id, ip) in accounts)
                             {
                                 var line = $"START {id} {ip}\n";
                                 var data = Encoding.UTF8.GetBytes(line);
@@ -103,22 +104,31 @@ namespace Tiamat.Utility.Services
 
                                         string symbol = input[3].Trim();
                                         string type = input[2].Trim();
+                                        if (type.ToUpper() == "BUY")
+                                        {
+                                            type = "Покупка";
+                                        }
+                                        else
+                                        {
+                                            type = "Продажба";
+                                        }
                                         string sizeStr = input[4].Trim();
                                         string riskStr = input[5].Trim();
                                         string openedAtStr = input[6].Trim();
                                         string fromIp = input[8].Replace("FROM_IP=", "").Trim();
                                         string id = input[7].Trim();
 
-                                        var account = accountService.GetAccountByIp(fromIp);
+                                        var account = await accountService.GetAccountByIpAsync(fromIp);
                                         if (account == null)
                                         {
                                             _logger.LogError("Account with IP {FromIp} not found.", fromIp);
-                                            continue; 
+                                            continue;
                                         }
                                         _logger.LogInformation("Received message: {Message}", message);
                                         _logger.LogInformation("Parsed: symbol={Symbol}, type={Type}, size={Size}, risk={Risk}, openedAt={OpenedAt}, fromIp={FromIp}, id={Id}",
                                             symbol, type, sizeStr, riskStr, openedAtStr, fromIp, id);
-                                        positionService.CreatePosition(
+
+                                        await positionService.CreatePositionAsync(
                                             symbol,
                                             type,
                                             account,
@@ -147,7 +157,7 @@ namespace Tiamat.Utility.Services
                                         string id = input[6].Trim();
                                         string fromIp = input[7].Replace("FROM_IP=", "").Trim();
 
-                                        positionService.ClosePosition(
+                                        await positionService.ClosePositionAsync(
                                             id,
                                             decimal.Parse(profit),
                                             decimal.Parse(currentCapital),

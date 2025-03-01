@@ -24,8 +24,8 @@ namespace Tiamat.Utility
             {
                 if (context.Controller is Controller controller)
                 {
-                    controller.TempData["AlertMessage"] = "AI Model is Offline. App Is Inaccessible.";
-                    controller.TempData["AlertTitle"] = "Connection Error";
+                    controller.TempData["AlertMessage"] = "AI Model is Offline.";
+                    controller.TempData["AlertTitle"] = "Changes cannot be pushed";
                     controller.TempData["AlertType"] = "error";
                 }
 
