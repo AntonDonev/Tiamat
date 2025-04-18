@@ -1,0 +1,1548 @@
+﻿@using Tiamat.Models
+@using Tiamat.WebApp.Models
+@using static Tiamat.WebApp.Models.DashboardViewModel
+@model DashboardViewModel
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Моето табло";
+}
+
+<link rel="stylesheet" href="~/css/loginStyle.css" />
+
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --primary-hover: #3a56d4;
+        --secondary-color: #7209b7;
+        --bg-gradient: linear-gradient(135deg, #4361ee, #7209b7);
+        --text-color: #ffffff;
+        --light-text: #f8f9fa;
+        --card-bg: rgba(28, 28, 30, 0.95);
+        --input-bg: rgba(40, 40, 45, 0.9);
+        --shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        --border-radius: 12px;
+        --transition: all 0.3s ease;
+        --dark-bg: #121212;
+        --darker-bg: #0a0a0a;
+    }
+
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+
+    .dashboard-container {
+        max-width: 1440px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes fadeInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes fadeInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .dark-card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+        .dark-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--bg-gradient);
+        }
+
+        .dark-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .dark-card .card-title {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.5px;
+        }
+
+    .notification-card {
+        animation: fadeInRight 0.8s ease-out;
+    }
+
+    .positions-card {
+        animation: fadeInLeft 0.8s ease-out;
+    }
+
+    .table-custom {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 6px;
+        background-color: transparent;
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+    }
+
+        .table-custom thead th {
+            background-color: rgba(51, 51, 51, 0.8);
+            color: var(--text-color);
+            border: none;
+            padding: 0.8rem;
+            margin: 0;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        .table-custom tbody tr {
+            background-color: rgba(44, 44, 44, 0.8);
+            margin: 8px 0;
+            padding: 0;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+            .table-custom tbody tr td {
+                padding: 1rem 0.8rem;
+            }
+
+            .table-custom tbody tr:not(:first-child) {
+                border-top: none;
+            }
+
+        .table-custom td,
+        .table-custom th {
+            border: none;
+            margin: 0;
+        }
+
+        .table-custom tbody tr:hover {
+            background-color: rgba(58, 58, 58, 0.8);
+            transform: translateX(2px);
+        }
+
+    .modal {
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.7);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+    .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        margin: 0 auto;
+        padding: 2rem;
+        width: 90%;
+        max-width: 600px;
+        border-radius: var(--border-radius);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: var(--shadow);
+        transform: translateY(-20px) scale(0.95);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .modal.show .modal-content {
+        transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin: 0;
+    }
+
+    .modal-body {
+        padding: 1rem 0;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    .modal-footer {
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        margin-top: 1rem;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .btn-primary {
+        background: var(--bg-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: inline-block;
+        padding: 0.6rem 1.2rem;
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+        }
+
+    .btn-secondary {
+        background-color: rgba(68, 68, 68, 0.8);
+        border: none;
+        color: var(--text-color);
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: inline-block;
+        padding: 0.6rem 1.2rem;
+    }
+
+        .btn-secondary:hover {
+            background-color: rgba(85, 85, 85, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+    .notification-title {
+        color: var(--text-color);
+        font-weight: 500;
+        font-size: 1.1rem;
+        transition: color 0.2s;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+        .notification-title:hover {
+            color: var(--primary-color);
+        }
+
+    .notification-meta {
+        display: flex;
+        align-items: center;
+        color: #aaa;
+        font-size: 0.85rem;
+    }
+
+        .notification-meta span {
+            display: flex;
+            align-items: center;
+            margin-right: 1rem;
+        }
+
+        .notification-meta i {
+            margin-right: 0.3rem;
+            font-size: 0.9rem;
+        }
+
+    .pagination .page-link {
+        color: var(--text-color);
+        background-color: rgba(44, 44, 44, 0.8);
+        border: 1px solid rgba(58, 58, 58, 0.8);
+        margin: 0 2px;
+        border-radius: 4px;
+        transition: var(--transition);
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(115, 103, 240, 0.5);
+    }
+
+    .pagination .page-link:hover {
+        background-color: rgba(58, 58, 58, 0.8);
+        border-color: rgba(68, 68, 68, 0.8);
+        transform: translateY(-1px);
+    }
+
+    .filter-btn {
+        background-color: rgba(44, 44, 44, 0.8);
+        border: 1px solid rgba(58, 58, 58, 0.8);
+        color: var(--text-color);
+        padding: 0.5rem 1rem;
+        margin-right: 0.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: var(--transition);
+        font-size: 0.9rem;
+    }
+
+        .filter-btn:hover {
+            background-color: rgba(58, 58, 58, 0.8);
+            transform: translateY(-1px);
+        }
+
+        .filter-btn.active {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(115, 103, 240, 0.3);
+        }
+
+    .filter-buttons {
+        margin-bottom: 1.5rem;
+        text-align: right;
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .date-filter {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+        .date-filter label {
+            color: var(--text-color);
+            margin-right: 1rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .date-filter input {
+            background-color: var(--input-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: 8px;
+            margin-right: 0.5rem;
+            transition: var(--transition);
+        }
+
+            .date-filter input:focus {
+                outline: none;
+                border-color: var(--primary-color);
+                box-shadow: 0 0 0 2px rgba(115, 103, 240, 0.2);
+            }
+
+    #positionsChartContainer {
+        height: 300px;
+        width: 100%;
+        position: relative;
+    }
+
+    .badge {
+        padding: 0.4rem 0.7rem;
+        border-radius: 12px;
+        font-weight: 500;
+        font-size: 0.75rem;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+
+    .badge-read {
+        background-color: rgba(115, 103, 240, 0.15);
+        color: #7367f0;
+    }
+
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: #aaa;
+        text-align: center;
+    }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+    .close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: color 0.2s;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+        .close-btn:hover {
+            color: var(--text-color);
+            background-color: rgba(255,255,255,0.1);
+        }
+
+    .notification-date {
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+
+    .section-title {
+        font-size: 2.2rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        line-height: 1.3;
+        color: var(--text-color);
+        text-align: center;
+        animation: fadeInDown 0.8s ease-out;
+    }
+
+    .section-description {
+        color: var(--light-text);
+        text-align: center;
+        margin-bottom: 2rem;
+        animation: fadeIn 0.8s ease-out;
+        animation-delay: 0.2s;
+        opacity: 0;
+        animation-fill-mode: forwards;
+    }
+
+    .table-row-appear {
+        animation: tableRowAppear 0.5s ease-out forwards;
+        opacity: 0;
+    }
+
+    @@keyframes tableRowAppear {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@media (max-width: 1200px) {
+        .dashboard-container {
+            padding: 0 1.5rem;
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .filter-buttons {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .date-filter {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+            .date-filter label {
+                margin-bottom: 0.5rem;
+            }
+
+        .section-title {
+            font-size: 1.8rem;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .dashboard-container {
+            padding: 0 1rem;
+        }
+
+        .filter-btn {
+            margin-bottom: 0.5rem;
+        }
+
+        .date-filter input,
+        .date-filter button {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+
+<div id="particles-js"></div>
+
+<div class="dashboard-container">
+    <div class="text-center mb-4">
+        <h1 class="section-title">Моето табло</h1>
+        <p class="section-description">Преглед на AI позициите и последните известия</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+
+            @if (Model.Positions == null || !Model.Positions.Any())
+            {
+                <div class="dark-card positions-card shadow px-3 py-4 mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title mb-3">Преглед на AI позициите</h2>
+                        <p class="text-muted">Все още няма отворени позиции.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="dark-card positions-card shadow px-3 py-4 mb-4">
+                    <div class="card-body">
+                        <h2 class="card-title mb-3">Преглед на AI позициите</h2>
+                        <p class="mb-3" style="color:#ccc;">
+                            По-долу е дневна разбивка на сделките, извършени от AI на свързаните ви акаунти.
+                            Всяка точка показва колко сделки са изпълнени на тази дата.
+                            Задръжте курсора върху точка, за да видите колко са Покупки срещу Продажби,
+                            и колко различни акаунти са участвали.
+                        </p>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-days="7">Последна Седмица</button>
+                            <button class="filter-btn" data-days="30">Последен Месец</button>
+                            <button class="filter-btn" data-days="90">Последни 3 Месеца</button>
+                            <button class="filter-btn" data-days="365">Последна Година</button>
+                            <button class="filter-btn" data-days="0">Всички Времена</button>
+                        </div>
+                        <div id="positionsChartContainer">
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="dark-card notification-card shadow px-3 py-4">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">Списък с известия</h2>
+
+                    <div class="date-filter">
+                        <label>Филтър по дата:</label>
+                        <input type="date" id="aiStartDate" class="date-input">
+                        <span style="color: #fff; margin: 0 0.5rem;">до</span>
+                        <input type="date" id="aiEndDate" class="date-input">
+                        <button class="btn-primary ms-2" id="aiApplyDateFilter">Приложи</button>
+                        <button class="btn-secondary ms-2" id="aiResetDateFilter">Нулирай</button>
+                    </div>
+
+                    <div class="filter-buttons mb-3">
+                        <button class="filter-btn active" data-notification-days="7">Последна Седмица</button>
+                        <button class="filter-btn" data-notification-days="30">Последен Месец</button>
+                        <button class="filter-btn" data-notification-days="90">Последни 3 Месеца</button>
+                        <button class="filter-btn" data-notification-days="0">Всички</button>
+                    </div>
+
+                    <div style="background-color: transparent; margin: 0; padding: 0;">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th scope="col" style="border-radius: 8px 0 0 8px;">Заглавие</th>
+                                    <th scope="col" class="text-center" style="width:120px; border-radius: 0 8px 8px 0;">Действие</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aiNotificationsTableBody"></tbody>
+                        </table>
+
+                        <div id="aiEmptyNotifications" class="empty-state" style="display: none;">
+                            <i class="fas fa-bell-slash"></i>
+                            <p>Няма намерени известия за избрания период</p>
+                        </div>
+                    </div>
+
+                    <nav class="mt-4">
+                        <ul class="pagination pagination-sm justify-content-end" id="aiPagination"></ul>
+                    </nav>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="aiDashboardModal">
+    <div class="modal-content">
+        <button class="close-btn" id="aiCloseModalBtn">&times;</button>
+        <div class="modal-header">
+            <h3 class="modal-title" id="aiModalTitle"></h3>
+        </div>
+        <div class="modal-body" id="aiModalBody">
+        </div>
+        <div class="modal-footer">
+            <div class="notification-meta">
+                <span><i class="fas fa-calendar"></i> <span id="aiModalDate"></span></span>
+                <span><i class="fas fa-eye"></i> <span id="aiModalReadCount"></span></span>
+            </div>
+            <button class="btn-secondary" id="aiCloseModalBtn2">Затвори</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+    @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+    <script>
+        var chartPositions = @Json.Serialize(Model.Positions ?? new List<PositionChartDto>());
+        var currentDayFilter = 7;
+        var positionsChart;
+        var aiNotificationDayFilter = 7;
+        var aiDashboardModal = document.getElementById('aiDashboardModal');
+        var aiCloseModalBtn = document.getElementById('aiCloseModalBtn');
+        var aiCloseModalBtn2 = document.getElementById('aiCloseModalBtn2');
+        var aiModalTitle = document.getElementById('aiModalTitle');
+        var aiModalBody = document.getElementById('aiModalBody');
+        var aiModalDate = document.getElementById('aiModalDate');
+        var aiModalReadCount = document.getElementById('aiModalReadCount');
+        var aiStartDateInput = document.getElementById('aiStartDate');
+        var aiEndDateInput = document.getElementById('aiEndDate');
+        var aiApplyDateFilterBtn = document.getElementById('aiApplyDateFilter');
+        var aiResetDateFilterBtn = document.getElementById('aiResetDateFilter');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            particlesJS('particles-js', {
+                "particles": {
+                    "number": {
+                        "value": 80,
+                        "density": {
+                            "enable": true,
+                            "value_area": 800
+                        }
+                    },
+                    "color": {
+                        "value": "#4361ee"
+                    },
+                    "shape": {
+                        "type": "circle",
+                        "stroke": {
+                            "width": 0,
+                            "color": "#000000"
+                        },
+                        "polygon": {
+                            "nb_sides": 5
+                        }
+                    },
+                    "opacity": {
+                        "value": 0.5,
+                        "random": false,
+                        "anim": {
+                            "enable": false,
+                            "speed": 1,
+                            "opacity_min": 0.1,
+                            "sync": false
+                        }
+                    },
+                    "size": {
+                        "value": 3,
+                        "random": true,
+                        "anim": {
+                            "enable": false,
+                            "speed": 40,
+                            "size_min": 0.1,
+                            "sync": false
+                        }
+                    },
+                    "line_linked": {
+                        "enable": true,
+                        "distance": 150,
+                        "color": "#7209b7",
+                        "opacity": 0.4,
+                        "width": 1
+                    },
+                    "move": {
+                        "enable": true,
+                        "speed": 2,
+                        "direction": "none",
+                        "random": false,
+                        "straight": false,
+                        "out_mode": "out",
+                        "bounce": false,
+                        "attract": {
+                            "enable": false,
+                            "rotateX": 600,
+                            "rotateY": 1200
+                        }
+                    }
+                },
+                "interactivity": {
+                    "detect_on": "canvas",
+                    "events": {
+                        "onhover": {
+                            "enable": true,
+                            "mode": "grab"
+                        },
+                        "onclick": {
+                            "enable": true,
+                            "mode": "push"
+                        },
+                        "resize": true
+                    },
+                    "modes": {
+                        "grab": {
+                            "distance": 140,
+                            "line_linked": {
+                                "opacity": 1
+                            }
+                        },
+                        "bubble": {
+                            "distance": 400,
+                            "size": 40,
+                            "duration": 2,
+                            "opacity": 8,
+                            "speed": 3
+                        },
+                        "repulse": {
+                            "distance": 200,
+                            "duration": 0.4
+                        },
+                        "push": {
+                            "particles_nb": 4
+                        },
+                        "remove": {
+                            "particles_nb": 2
+                        }
+                    }
+                },
+                "retina_detect": true
+            });
+
+            const chartContainer = document.getElementById("positionsChartContainer");
+
+            if (chartContainer) {
+                if (chartPositions && Array.isArray(chartPositions)) {
+                    initFilterButtons();
+                    createPositionsChart(currentDayFilter);
+                } else {
+                    createEmptyChart(chartContainer);
+                }
+            }
+
+            initAiNotificationFilterButtons();
+            loadAiNotifications(1);
+            initAiModalEvents();
+            initAiDateFilter();
+
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            filterButtons.forEach((btn, index) => {
+                btn.style.opacity = '0';
+                setTimeout(() => {
+                    btn.style.transition = 'all 0.3s ease';
+                    btn.style.opacity = '1';
+                    btn.style.transform = 'translateY(0)';
+                }, 100 + (index * 50));
+            });
+        });
+
+        function initAiModalEvents() {
+            aiCloseModalBtn.addEventListener('click', closeAiModal);
+            aiCloseModalBtn2.addEventListener('click', closeAiModal);
+
+            window.addEventListener('click', function(event) {
+                if (event.target === aiDashboardModal) {
+                    closeAiModal();
+                }
+            });
+        }
+
+        function openAiModal(id, title, description, date, readCount) {
+            aiModalTitle.textContent = title;
+            aiModalBody.innerHTML = description;
+            aiModalDate.textContent = date || 'Неизвестна дата';
+            aiModalReadCount.textContent = readCount + ' прочитания';
+            aiDashboardModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+
+            fetch(`/User/MarkNotificationAsRead?id=${id}`)
+                .then(response => response.json())
+                .catch(error => console.error('Error marking notification as read:', error));
+        }
+
+        function closeAiModal() {
+            aiDashboardModal.classList.remove('show');
+            document.body.style.overflow = '';
+
+            setTimeout(function() {
+                aiModalTitle.textContent = '';
+                aiModalBody.innerHTML = '';
+            }, 300);
+        }
+
+        function initAiDateFilter() {
+            const today = new Date();
+
+            const defaultStartDate = new Date();
+            defaultStartDate.setDate(today.getDate() - 7);
+
+            aiStartDateInput.valueAsDate = defaultStartDate;
+            aiEndDateInput.valueAsDate = today;
+
+            aiApplyDateFilterBtn.addEventListener('click', function() {
+                loadAiNotifications(1);
+
+                document.querySelectorAll('[data-notification-days]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                aiNotificationDayFilter = -1;
+            });
+
+            aiResetDateFilterBtn.addEventListener('click', function() {
+                aiStartDateInput.valueAsDate = defaultStartDate;
+                aiEndDateInput.valueAsDate = today;
+
+                document.querySelector('[data-notification-days="7"]').click();
+            });
+        }
+
+        function initFilterButtons() {
+            var buttons = document.querySelectorAll("[data-days]");
+            buttons.forEach(function(btn) {
+                btn.addEventListener("click", function() {
+                    buttons.forEach(function(b) { b.classList.remove("active"); });
+                    btn.classList.add("active");
+                    var days = parseInt(btn.getAttribute("data-days"));
+                    currentDayFilter = days;
+                    createPositionsChart(days);
+                });
+            });
+        }
+
+        function initAiNotificationFilterButtons() {
+            var buttons = document.querySelectorAll("[data-notification-days]");
+            buttons.forEach(function(btn) {
+                btn.addEventListener("click", function() {
+                    buttons.forEach(function(b) { b.classList.remove("active"); });
+                    btn.classList.add("active");
+                    var days = parseInt(btn.getAttribute("data-notification-days"));
+                    aiNotificationDayFilter = days;
+                    loadAiNotifications(1);
+                });
+            });
+        }
+
+        function filterPositionsByDays(days) {
+            if (!chartPositions || !Array.isArray(chartPositions) || chartPositions.length === 0) {
+                return [];
+            }
+
+            if (days === 0) {
+                return chartPositions;
+            }
+
+            try {
+                var latestDate = null;
+                var validDatesCount = 0;
+
+                chartPositions.forEach(function(pos, index) {
+                    const openedAt = pos.openedAtIso || pos.OpenedAtIso;
+
+                    if (!openedAt) {
+                        return;
+                    }
+
+                    try {
+                        var date = new Date(openedAt);
+                        if (!isNaN(date.getTime())) {
+                            validDatesCount++;
+                            if (!latestDate || date > latestDate) {
+                                latestDate = date;
+                            }
+                        }
+                    } catch (err) {
+
+                    }
+                });
+
+                if (!latestDate) {
+                    return chartPositions;
+                }
+
+                var cutoffDate = new Date(latestDate);
+                cutoffDate.setDate(cutoffDate.getDate() - days);
+
+                var filteredPositions = chartPositions.filter(function(pos) {
+                    const openedAt = pos.openedAtIso || pos.OpenedAtIso;
+
+                    if (!openedAt) return false;
+
+                    try {
+                        var date = new Date(openedAt);
+                        return !isNaN(date.getTime()) && date >= cutoffDate;
+                    } catch (err) {
+                        return false;
+                    }
+                });
+
+                return filteredPositions;
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function createPositionsChart(days) {
+            var positions = filterPositionsByDays(days);
+            const chartContainer = document.getElementById('positionsChartContainer');
+
+            if (positionsChart) {
+                positionsChart.destroy();
+            }
+
+            if (!positions || positions.length === 0) {
+                createEmptyChart(chartContainer);
+                return;
+            }
+
+            try {
+                var dateMap = {};
+                var buyMap = {};
+                var sellMap = {};
+                var accountMap = {};
+
+                positions.forEach(function(pos) {
+                    const openedAt = pos.openedAtIso || pos.OpenedAtIso;
+                    const type = pos.type || pos.Type;
+                    const accountId = pos.accountId || pos.AccountId;
+
+                    if (!openedAt) {
+                        return;
+                    }
+
+                    try {
+                        let dateObj = new Date(openedAt);
+                        if (isNaN(dateObj.getTime())) {
+                            return;
+                        }
+
+                        let dateStr = dateObj.toISOString().split('T')[0];
+
+                        if (!dateMap[dateStr]) {
+                            dateMap[dateStr] = 0;
+                            buyMap[dateStr] = 0;
+                            sellMap[dateStr] = 0;
+                            accountMap[dateStr] = {};
+                        }
+
+                        dateMap[dateStr]++;
+
+                        if (accountId) {
+                            accountMap[dateStr][accountId] = true;
+                        }
+
+                        if (type === "Покупка") {
+                            buyMap[dateStr]++;
+                        } else if (type === "Продажба") {
+                            sellMap[dateStr]++;
+                        }
+                    } catch (err) {
+
+                    }
+                });
+
+                if (Object.keys(dateMap).length === 0) {
+                    createEmptyChart(chartContainer);
+                    return;
+                }
+
+                var dates = Object.keys(dateMap).sort();
+                if (dates.length > 1) {
+                    var startDate = new Date(dates[0]);
+                    var endDate = new Date(dates[dates.length - 1]);
+                    var continuousDates = [];
+                    var currentDate = new Date(startDate);
+
+                    while (currentDate <= endDate) {
+                        var dateStr = currentDate.toISOString().split('T')[0];
+                        continuousDates.push(dateStr);
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+
+                    continuousDates.forEach(date => {
+                        if (!dateMap[date]) {
+                            dateMap[date] = 0;
+                            buyMap[date] = 0;
+                            sellMap[date] = 0;
+                            accountMap[date] = {};
+                        }
+                    });
+
+                    dates = continuousDates;
+                }
+
+                var counts = [];
+                var buys = [];
+                var sells = [];
+                var accounts = [];
+                var formattedDates = [];
+
+                dates.forEach(date => {
+                    counts.push(dateMap[date] || 0);
+                    buys.push(buyMap[date] || 0);
+                    sells.push(sellMap[date] || 0);
+                    accounts.push(Object.keys(accountMap[date] || {}).length);
+
+                    const dateObj = new Date(date);
+                    const formattedDate = dateObj.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                    formattedDates.push(formattedDate);
+                });
+
+                var canvas = document.createElement('canvas');
+                canvas.id = 'tradesChart';
+                canvas.style.width = '100%';
+                canvas.style.height = '300px';
+                chartContainer.innerHTML = '';
+                chartContainer.appendChild(canvas);
+
+                var ctx = canvas.getContext('2d');
+
+                positionsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: formattedDates,
+                        datasets: [
+                            {
+                                label: 'Общо Сделки',
+                                data: counts,
+                                borderColor: 'rgb(115, 103, 240)',
+                                backgroundColor: 'rgba(115, 103, 240, 0.1)',
+                                borderWidth: 3,
+                                pointRadius: 5,
+                                pointHoverRadius: 7,
+                                fill: true,
+                                tension: 0.2
+                            },
+                            {
+                                label: 'Сделки за Покупка',
+                                data: buys,
+                                borderColor: 'rgb(40, 199, 111)',
+                                backgroundColor: 'rgba(40, 199, 111, 0.1)',
+                                borderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                fill: false,
+                                tension: 0.2,
+                                hidden: true
+                            },
+                            {
+                                label: 'Сделки за Продажба',
+                                data: sells,
+                                borderColor: 'rgb(234, 84, 85)',
+                                backgroundColor: 'rgba(234, 84, 85, 0.1)',
+                                borderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6,
+                                fill: false,
+                                tension: 0.2,
+                                hidden: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#fff',
+                                    usePointStyle: true,
+                                    pointStyle: 'circle',
+                                    padding: 15,
+                                    font: {
+                                        size: 12
+                                    }
+                                },
+                                onClick: function(e, legendItem, legend) {
+                                    const index = legendItem.datasetIndex;
+                                    const ci = legend.chart;
+                                    const meta = ci.getDatasetMeta(index);
+
+                                    meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
+                                    ci.update();
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: '#2c2c2c',
+                                borderColor: '#444',
+                                borderWidth: 1,
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                padding: 10,
+                                callbacks: {
+                                    afterTitle: function(context) {
+                                        const index = context[0].dataIndex;
+                                        return `Акаунти: ${accounts[index]}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#fff'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#fff',
+                                    precision: 0,
+                                    stepSize: 1
+                                },
+                                min: 0
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        },
+                        animation: {
+                            duration: 1000,
+                            easing: 'easeOutQuart'
+                        }
+                    }
+                });
+            } catch (error) {
+                createEmptyChart(chartContainer);
+            }
+        }
+
+        function createEmptyChart(container) {
+            if (!container) {
+                return;
+            }
+
+            if (positionsChart) {
+                positionsChart.destroy();
+            }
+
+            container.innerHTML = '';
+
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.id = 'emptyTradesChart';
+                canvas.style.width = '100%';
+                canvas.style.height = '300px';
+                container.appendChild(canvas);
+
+                var ctx = canvas.getContext('2d');
+
+                positionsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [''],
+                        datasets: [{
+                            data: [0],
+                            borderColor: 'rgba(0,0,0,0)',
+                            backgroundColor: 'rgba(0,0,0,0)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: false
+                            },
+                            y: {
+                                display: false
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 0
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'emptyChartText',
+                        afterDraw: function(chart) {
+                            var ctx = chart.ctx;
+                            var width = chart.width;
+                            var height = chart.height;
+
+                            ctx.save();
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.font = '16px Arial';
+                            ctx.fillStyle = '#fff';
+                            ctx.fillText('Няма Налични Данни за Сделки', width / 2, height / 2);
+                            ctx.restore();
+                        }
+                    }]
+                });
+            } catch (error) {
+                container.innerHTML = '<div style="height:100%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px;">Няма Налични Данни за Сделки</div>';
+            }
+        }
+
+        function loadAiNotifications(page) {
+            let url = `/User/GetNotifications?page=${page}&pageSize=5`;
+
+            if (aiNotificationDayFilter > 0) {
+                const today = new Date();
+                const pastDate = new Date();
+                pastDate.setDate(today.getDate() - aiNotificationDayFilter);
+
+                url += `&startDate=${pastDate.toISOString().split('T')[0]}&endDate=${today.toISOString().split('T')[0]}`;
+            } else if (aiNotificationDayFilter === -1) {
+                const startDate = aiStartDateInput.value;
+                const endDate = aiEndDateInput.value;
+
+                if (startDate && endDate) {
+                    url += `&startDate=${startDate}&endDate=${endDate}`;
+                }
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    renderAiNotifications(data.notifications);
+                    renderAiPagination(data.currentPage, data.totalPages);
+
+                    if (!data.notifications || data.notifications.length === 0) {
+                        document.getElementById('aiEmptyNotifications').style.display = 'flex';
+                    } else {
+                        document.getElementById('aiEmptyNotifications').style.display = 'none';
+                    }
+                })
+                .catch(error => console.error('Error fetching notifications:', error));
+        }
+
+        function renderAiNotifications(notifications) {
+            const tbody = document.getElementById('aiNotificationsTableBody');
+            tbody.innerHTML = '';
+
+            if (!notifications || notifications.length === 0) {
+                return;
+            }
+
+            notifications.forEach((note, index) => {
+                const row = document.createElement('tr');
+                row.classList.add('table-row-appear');
+                row.style.animationDelay = `${index * 0.1}s`;
+
+                let dateDisplay = '';
+                try {
+                    if (note.dateTime) {
+                        dateDisplay = note.dateTime;
+                    }
+                    else if (note.createdAt) {
+                        dateDisplay = note.createdAt;
+                    }
+
+                    if (dateDisplay && dateDisplay.includes('T')) {
+                        const date = new Date(dateDisplay);
+                        if (!isNaN(date.getTime())) {
+                            dateDisplay = date.toLocaleString('bg-BG', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error formatting date:', err);
+                    dateDisplay = note.dateTime || note.createdAt || 'Без дата';
+                }
+
+                row.innerHTML = `
+                    <td style="border-radius: 8px 0 0 8px;">
+                        <a href="#"
+                           class="notification-title"
+                           data-id="${note.id}"
+                           data-title="${note.title}"
+                           data-description="${note.description}"
+                           data-date="${dateDisplay}"
+                           data-read-count="${note.totalReadCount}">
+                           ${note.title}
+                        </a>
+                        <div class="notification-meta">
+                            <span><i class="fas fa-calendar"></i> ${dateDisplay || 'Без дата'}</span>
+                            <span><i class="fas fa-eye"></i> ${note.totalReadCount}</span>
+                            <span class="badge badge-read">${note.isRead ? 'Прочетено' : 'Ново'}</span>
+                        </div>
+                    </td>
+                    <td class="text-center" style="border-radius: 0 8px 8px 0;">
+                        <button class="btn-primary btn-sm view-ai-notification"
+                                data-id="${note.id}"
+                                data-title="${note.title}"
+                                data-description="${note.description}"
+                                data-date="${dateDisplay}"
+                                data-read-count="${note.totalReadCount}"
+                                style="margin: 0;">
+                            <i class="fas fa-eye"></i> Виж
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            bindAiNotificationEvents();
+        }
+
+        function bindAiNotificationEvents() {
+            const titles = document.querySelectorAll("#aiNotificationsTableBody .notification-title");
+            const viewButtons = document.querySelectorAll(".view-ai-notification");
+
+            const openNotificationModal = function(element) {
+                const id = element.getAttribute("data-id");
+                const title = element.getAttribute("data-title");
+                const description = element.getAttribute("data-description");
+                const date = element.getAttribute("data-date");
+                const readCount = element.getAttribute("data-read-count");
+
+                openAiModal(id, title, description, date, readCount);
+            };
+
+            titles.forEach(title => {
+                title.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    openNotificationModal(title);
+                });
+            });
+
+            viewButtons.forEach(button => {
+                button.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    openNotificationModal(button);
+                });
+            });
+        }
+
+        function renderAiPagination(currentPage, totalPages) {
+            const pagination = document.getElementById('aiPagination');
+            pagination.innerHTML = '';
+            if (totalPages <= 1) {
+                return;
+            }
+
+            const prevItem = document.createElement('li');
+            prevItem.classList.add('page-item');
+            if (currentPage === 1) {
+                prevItem.classList.add('disabled');
+            }
+            const prevLink = document.createElement('a');
+            prevLink.classList.add('page-link');
+            prevLink.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevLink.href = '#';
+            prevLink.addEventListener('click', e => {
+                e.preventDefault();
+                if (currentPage > 1) loadAiNotifications(currentPage - 1);
+            });
+            prevItem.appendChild(prevLink);
+            pagination.appendChild(prevItem);
+
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + 4);
+
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            if (startPage > 1) {
+                const firstItem = document.createElement('li');
+                firstItem.classList.add('page-item');
+                const firstLink = document.createElement('a');
+                firstLink.classList.add('page-link');
+                firstLink.innerText = '1';
+                firstLink.href = '#';
+                firstLink.addEventListener('click', e => {
+                    e.preventDefault();
+                    loadAiNotifications(1);
+                });
+                firstItem.appendChild(firstLink);
+                pagination.appendChild(firstItem);
+
+                if (startPage > 2) {
+                    const ellipsisItem = document.createElement('li');
+                    ellipsisItem.classList.add('page-item', 'disabled');
+                    const ellipsisLink = document.createElement('a');
+                    ellipsisLink.classList.add('page-link');
+                    ellipsisLink.innerHTML = '&hellip;';
+                    ellipsisItem.appendChild(ellipsisLink);
+                    pagination.appendChild(ellipsisItem);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.classList.add('page-item');
+                if (i === currentPage) {
+                    pageItem.classList.add('active');
+                }
+                const pageLink = document.createElement('a');
+                pageLink.classList.add('page-link');
+                pageLink.href = '#';
+                pageLink.innerText = i;
+                pageLink.addEventListener('click', e => {
+                    e.preventDefault();
+                    loadAiNotifications(i);
+                });
+                pageItem.appendChild(pageLink);
+                pagination.appendChild(pageItem);
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    const ellipsisItem = document.createElement('li');
+                    ellipsisItem.classList.add('page-item', 'disabled');
+                    const ellipsisLink = document.createElement('a');
+                    ellipsisLink.classList.add('page-link');
+                    ellipsisLink.innerHTML = '&hellip;';
+                    ellipsisItem.appendChild(ellipsisLink);
+                    pagination.appendChild(ellipsisItem);
+                }
+
+                const lastItem = document.createElement('li');
+                lastItem.classList.add('page-item');
+                const lastLink = document.createElement('a');
+                lastLink.classList.add('page-link');
+                lastLink.innerText = totalPages;
+                lastLink.href = '#';
+                lastLink.addEventListener('click', e => {
+                    e.preventDefault();
+                    loadAiNotifications(totalPages);
+                });
+                lastItem.appendChild(lastLink);
+                pagination.appendChild(lastItem);
+            }
+
+            const nextItem = document.createElement('li');
+            nextItem.classList.add('page-item');
+            if (currentPage === totalPages) {
+                nextItem.classList.add('disabled');
+            }
+            const nextLink = document.createElement('a');
+            nextLink.classList.add('page-link');
+            nextLink.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextLink.href = '#';
+            nextLink.addEventListener('click', e => {
+                e.preventDefault();
+                if (currentPage < totalPages) loadAiNotifications(currentPage + 1);
+            });
+            nextItem.appendChild(nextLink);
+            pagination.appendChild(nextItem);
+        }
+    </script>
+}

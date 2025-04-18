@@ -1,0 +1,1248 @@
+﻿@using System.Security.Claims
+@using Tiamat.Core.Services.Interfaces
+@using Tiamat.Models
+@inject IAccountService accountService
+@inject INotificationService notificationService
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/lib/iziToast/css/iziToast.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.3.3/cyborg/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/customstyle.css" />
+    <link rel="stylesheet" href="~/css/dashboardstyle.css" />
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --primary-hover: #3a56d4;
+            --secondary-color: #7209b7;
+            --bg-gradient: linear-gradient(135deg, #4361ee, #7209b7);
+            --text-color: #ffffff;
+            --light-text: #f8f9fa;
+            --card-bg: rgba(28, 28, 30, 0.95);
+            --input-bg: rgba(40, 40, 45, 0.9);
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+            --dark-bg: #121212;
+            --darker-bg: #0a0a0a;
+            --nav-height: 70px;
+        }
+
+        body {
+            overflow-x: hidden;
+            background-color: var(--dark-bg);
+            padding-top: var(--nav-height);
+        }
+
+        .navbar-main {
+            background-color: rgba(13, 13, 13, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            height: var(--nav-height);
+            padding: 0 1.5rem;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1030;
+            transition: var(--transition);
+        }
+
+        .navbar-brand {
+            position: relative;
+            transition: var(--transition);
+        }
+
+            .navbar-brand:hover {
+                transform: scale(1.05);
+            }
+
+            .navbar-brand img {
+                max-height: 40px;
+                transition: var(--transition);
+            }
+
+        .nav-logo-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--bg-gradient);
+            color: white;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            animation: pulse 1.5s infinite;
+        }
+
+        .navbar-toggler {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(40, 40, 45, 0.9);
+            padding: 0.5rem;
+            transition: var(--transition);
+        }
+
+            .navbar-toggler:hover {
+                background-color: rgba(67, 97, 238, 0.2);
+            }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+
+        .nav-item {
+            position: relative;
+            margin: 0 0.3rem;
+            animation: fadeInDown 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+            .nav-item:nth-child(1) {
+                animation-delay: 0.1s;
+            }
+
+            .nav-item:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .nav-item:nth-child(3) {
+                animation-delay: 0.3s;
+            }
+
+            .nav-item:nth-child(4) {
+                animation-delay: 0.4s;
+            }
+
+            .nav-item:nth-child(5) {
+                animation-delay: 0.5s;
+            }
+
+        .nav-link {
+            color: #ccc;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+            .nav-link::before {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 10%;
+                right: 10%;
+                height: 3px;
+                background: var(--bg-gradient);
+                opacity: 0;
+                transition: var(--transition);
+                transform: translateY(8px);
+            }
+
+            .nav-link:hover {
+                color: #fff;
+                transform: translateY(-2px);
+            }
+
+                .nav-link:hover::before {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+
+            .nav-link i {
+                transition: transform 0.3s ease;
+            }
+
+            .nav-link:hover i {
+                transform: scale(1.2);
+            }
+
+        .nav-item.active .nav-link {
+            color: #fff;
+            text-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+            .nav-item.active .nav-link::before {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .nav-item.active .nav-link i {
+                color: var(--primary-color);
+            }
+
+        .user-dropdown {
+            color: #ccc;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            position: relative;
+        }
+
+            .user-dropdown:hover {
+                color: #fff;
+                background-color: rgba(255, 255, 255, 0.05);
+            }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .user-menu {
+            min-width: 200px;
+            background-color: rgba(13, 13, 13, 0.97);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            animation: fadeIn 0.2s ease-out;
+            z-index: 1050;
+        }
+
+        .user-menu-item {
+            padding: 0.7rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            color: #ccc;
+            transition: var(--transition);
+            font-size: 0.95rem;
+        }
+
+            .user-menu-item:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #fff;
+            }
+
+        .user-menu-divider {
+            height: 1px;
+            margin: 0.5rem 0;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+        }
+
+        .user-role {
+            font-size: 0.8rem;
+            color: #888;
+            margin-left: 0.5rem;
+        }
+
+        .bell-icon {
+            position: relative;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: var(--transition);
+            margin-right: 1rem;
+        }
+
+            .bell-icon:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+                transform: scale(1.1);
+            }
+
+        .bell-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--bg-gradient);
+            color: white;
+            border-radius: 50%;
+            min-width: 18px;
+            height: 18px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            animation: pulse 1.5s infinite;
+        }
+
+        .admin-badge {
+            background: linear-gradient(135deg, #ff4d4d, #ff9b4d);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+        }
+
+        .copyright {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            color: #888;
+            background-color: rgba(13, 13, 13, 0.8);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1000;
+        }
+
+            .copyright a {
+                color: #aaa;
+                text-decoration: none;
+                transition: var(--transition);
+            }
+
+                .copyright a:hover {
+                    color: var(--primary-color);
+                }
+
+        .layout-modal-content {
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: rgba(28, 28, 30, 0.95) !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .layout-modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: rgba(15, 15, 15, 0.8);
+            border-top-left-radius: 11px;
+            border-top-right-radius: 11px;
+            position: relative;
+        }
+
+            .layout-modal-header::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 5%;
+                right: 5%;
+                height: 1px;
+                background: var(--bg-gradient);
+            }
+
+        .layout-modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background-color: rgba(15, 15, 15, 0.8);
+            border-bottom-left-radius: 11px;
+            border-bottom-right-radius: 11px;
+            position: relative;
+        }
+
+            .layout-modal-footer::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 5%;
+                right: 5%;
+                height: 1px;
+                background: var(--bg-gradient);
+            }
+
+        .notification-item {
+            text-decoration: none;
+            display: block;
+            padding: 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+            background-color: rgba(34, 34, 34, 0.8);
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+            .notification-item:not(.notification-read) {
+                font-weight: bold;
+                background-color: rgba(26, 26, 26, 0.9);
+            }
+
+                .notification-item:not(.notification-read):hover {
+                    background-color: rgba(34, 34, 34, 0.9);
+                    transform: translateX(4px);
+                    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+                }
+
+            .notification-item.notification-read {
+                font-weight: normal;
+                border-left-color: #555;
+                color: #aaa;
+                text-decoration: none;
+            }
+
+                .notification-item.notification-read:hover {
+                    background-color: rgba(41, 41, 41, 0.8);
+                }
+
+        .notification-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: #777;
+        }
+
+        #layoutNotificationDetailContainer {
+            background-color: rgba(34, 34, 34, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        #layoutDetailTitle {
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        #layoutDetailDescription {
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #e0e0e0;
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .pagination-btn {
+            background-color: rgba(51, 51, 51, 0.8);
+            color: #fff;
+            border: none;
+            padding: 5px 12px;
+            margin: 0 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+            .pagination-btn:hover {
+                background-color: rgba(67, 97, 238, 0.3);
+                transform: translateY(-2px);
+            }
+
+            .pagination-btn.active {
+                background: var(--bg-gradient);
+                box-shadow: 0 2px 8px rgba(67, 97, 238, 0.4);
+            }
+
+            .pagination-btn:disabled {
+                background-color: rgba(34, 34, 34, 0.8);
+                color: #666;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+
+        .page-info {
+            color: #aaa;
+            text-align: center;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+
+        .dropdown-menu {
+            background-color: rgba(13, 13, 13, 0.97);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.2s ease-out;
+            z-index: 1050;
+        }
+
+        .nav-item.dropdown {
+            position: relative;
+        }
+
+            .nav-item.dropdown .dropdown-toggle {
+                position: relative;
+                z-index: 1060;
+            }
+
+                .nav-item.dropdown .dropdown-toggle:after {
+                    margin-left: 0.5rem;
+                    vertical-align: middle;
+                }
+
+            .nav-item.dropdown.show .dropdown-toggle {
+                color: #fff;
+                background-color: rgba(67, 97, 238, 0.15);
+            }
+
+                .nav-item.dropdown.show .dropdown-toggle::before {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+
+            .nav-item.dropdown .dropdown-menu {
+                margin-top: 0;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+            }
+
+        .admin-dropdown-menu {
+            min-width: 220px;
+            border-radius: 8px;
+            z-index: 1051;
+            transform: none !important;
+            top: 100% !important;
+            position: absolute !important;
+        }
+
+        .dropdown-item {
+            color: #ccc;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.7rem 1rem;
+            font-size: 0.95rem;
+        }
+
+            .dropdown-item:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+                color: #fff;
+            }
+
+            .dropdown-item.active {
+                background-color: rgba(67, 97, 238, 0.15);
+                color: #fff;
+            }
+
+        .dropdown-divider {
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dropdown-header {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .btn-close-white {
+            transition: transform 0.3s ease;
+        }
+
+            .btn-close-white:hover {
+                transform: rotate(90deg);
+            }
+
+        .btn {
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary {
+            background-color: rgba(85, 85, 85, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+            .btn-secondary:hover {
+                background-color: rgba(85, 85, 85, 0.5);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            }
+
+        .btn-success {
+            background: linear-gradient(135deg, #2ed573, #7bed9f);
+            border: none;
+        }
+
+            .btn-success:hover {
+                background: linear-gradient(135deg, #26af5f, #6ad78d);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(46, 213, 115, 0.3);
+            }
+
+        .logout-form {
+            margin: 0;
+        }
+
+        .btn-outline-primary {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+            .btn-outline-primary:hover {
+                background-color: rgba(67, 97, 238, 0.2);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(67, 97, 238, 0.2);
+            }
+
+        .btn-light {
+            background-color: rgba(240, 240, 240, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+            .btn-light:hover {
+                background-color: rgba(240, 240, 240, 0.2);
+                color: #fff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            }
+
+        .content-wrapper {
+            min-height: calc(100vh - var(--nav-height));
+            padding-bottom: 3rem;
+        }
+
+        @@keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @@keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(67, 97, 238, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(67, 97, 238, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(67, 97, 238, 0);
+            }
+        }
+
+        @@media (max-width: 991.98px) {
+            .navbar-collapse {
+                background-color: rgba(13, 13, 13, 0.97);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                padding: 1rem;
+                border-radius: 0 0 var(--border-radius) var(--border-radius);
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                z-index: 1040;
+                animation: fadeIn 0.3s ease-out;
+            }
+
+            .nav-item {
+                margin: 0.5rem 0;
+            }
+
+            .nav-link::before {
+                bottom: auto;
+                top: 0;
+                left: 0;
+                width: 3px;
+                height: 100%;
+                transform: translateX(-8px);
+            }
+
+            .nav-link:hover::before {
+                transform: translateX(0);
+            }
+
+            .nav-link:hover {
+                transform: translateX(5px);
+            }
+
+            .user-dropdown {
+                margin-top: 0.5rem;
+                padding: 0.7rem 1rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .dropdown-menu.user-menu {
+                position: static !important;
+                float: none;
+                width: auto;
+                margin-top: 0.5rem;
+                margin-bottom: 0.5rem;
+                background-color: rgba(20, 20, 20, 0.97);
+                box-shadow: none;
+                transform: none !important;
+                border-radius: 8px;
+                inset: auto !important;
+            }
+
+            .dropdown-menu.show {
+                display: block !important;
+            }
+
+            .bell-icon {
+                margin-top: 0.5rem;
+                margin-right: 0;
+                padding: 0.7rem;
+                width: 100%;
+                text-align: left;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                border-radius: 8px;
+            }
+
+                .bell-icon:after {
+                    content: "Известия";
+                    display: inline-block;
+                    margin-left: 0.5rem;
+                    color: #ccc;
+                }
+
+            .bell-badge {
+                position: relative;
+                display: inline-flex;
+                margin-left: 0.5rem;
+                top: auto;
+                right: auto;
+            }
+        }
+
+        @@media (max-width: 767.98px) {
+            .navbar-main {
+                padding: 0 1rem;
+            }
+
+            .dropdown-menu {
+                width: 100%;
+            }
+        }
+
+        @@media (max-width: 575.98px) {
+            .copyright {
+                padding: 0.3rem;
+                font-size: 0.75rem;
+            }
+
+            .navbar-brand img {
+                max-height: 35px;
+            }
+
+            .admin-dropdown {
+                position: static;
+            }
+
+            .dropdown-menu {
+                width: 100%;
+                margin: 0.25rem auto;
+                left: 0 !important;
+                right: 0 !important;
+                transform: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100 text-white">
+    @{
+        var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? userId = null;
+        if (!string.IsNullOrWhiteSpace(userIdString))
+        {
+            userId = Guid.Parse(userIdString);
+        }
+        var userName = User.Identity?.Name;
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "No Role";
+        var userNotifications = new List<NotificationUser>();
+        if (userId.HasValue)
+        {
+            userNotifications = notificationService.GetUserNotificationsUserAsync(userId).GetAwaiter().GetResult().ToList();
+        }
+        var totalUnreadCount = userNotifications.Count(nu => !nu.IsRead);
+    }
+
+    <nav class="navbar navbar-expand-lg navbar-main">
+        <div class="container-fluid">
+            <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                <img src="~/images/tiamat_logo.png" alt="Tiamat Лого" />
+                @if (totalUnreadCount > 0)
+                {
+                    <span class="nav-logo-badge">@totalUnreadCount</span>
+                }
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" && ViewContext.RouteData.Values["action"]?.ToString() == "Dashboard") ? "active" : "")">
+                        <a class="nav-link" asp-controller="User" asp-action="Dashboard">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Табло</span>
+                        </a>
+                    </li>
+                    <li class="nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" && ViewContext.RouteData.Values["action"]?.ToString() == "AccountCenter") ? "active" : "")">
+                        <a class="nav-link" asp-controller="User" asp-action="AccountCenter">
+                            <i class="bi bi-person-circle"></i>
+                            <span>Акаунти</span>
+                        </a>
+                    </li>
+                    <li class="nav-item @((ViewContext.RouteData.Values["controller"]?.ToString() == "User" && ViewContext.RouteData.Values["action"]?.ToString() == "Settings") ? "active" : "")">
+                        <a class="nav-link" asp-controller="User" asp-action="Settings">
+                            <i class="bi bi-gear"></i>
+                            <span>Настройки</span>
+                        </a>
+                    </li>
+                    @if (userRole == "admin")
+                    {
+                        <li class="nav-item dropdown @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" ? "active" : "")">
+                            <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" data-bs-auto-close="false" aria-expanded="false">
+                                <i class="bi bi-shield-lock"></i>
+                                <span>Администратор</span>
+                            </a>
+                            <ul class="dropdown-menu admin-dropdown-menu" aria-labelledby="adminDropdown">
+                                <li>
+                                    <a class="dropdown-item user-menu-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "UserCenter" ? "active" : "")"
+                                       asp-controller="Admin" asp-action="UserCenter">
+                                        <i class="bi bi-people"></i>
+                                        <span>Потребители</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item user-menu-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "Notification" ? "active" : "")"
+                                       asp-controller="Admin" asp-action="Notification">
+                                        <i class="bi bi-bell-fill"></i>
+                                        <span>Известия</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item user-menu-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "AccountReview" ? "active" : "")"
+                                       asp-controller="Admin" asp-action="AccountReview">
+                                        <i class="bi bi-search"></i>
+                                        <span>Прегледи</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    }
+                </ul>
+                <div class="d-flex align-items-center">
+                    <div class="bell-icon" data-bs-toggle="modal" data-bs-target="#layoutNotificationModal">
+                        <i class="bi bi-bell"></i>
+                        @if (totalUnreadCount > 0)
+                        {
+                            <span class="bell-badge">@totalUnreadCount</span>
+                        }
+                    </div>
+                    <div class="dropdown">
+                        <div class="user-dropdown" id="userDropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i>
+                            <span>@userName</span>
+                            @if (userRole == "admin")
+                            {
+                                <span class="admin-badge">Admin</span>
+                            }
+                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end user-menu" aria-labelledby="userDropdown">
+                            <li>
+                                <div class="user-menu-item">
+                                    <i class="bi bi-person-fill"></i>
+                                    <span>@userName</span>
+                                </div>
+                            </li>
+                            <div class="user-menu-divider"></div>
+                            <li>
+                                <form asp-controller="User" asp-action="Logout" method="post" class="logout-form">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="dropdown-item user-menu-item">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                        <span>Изход</span>
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="content-wrapper">
+        <main class="p-4">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="copyright">
+        © 2025 - Tiamat.WebApp <a href="#">Поверителност</a>
+    </footer>
+
+    <div class="modal fade" id="layoutNotificationModal" tabindex="-1" aria-labelledby="layoutNotificationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white layout-modal-content">
+                <div class="modal-header border-secondary layout-modal-header">
+                    <h5 class="modal-title" id="layoutNotificationModalLabel">
+                        <i class="bi bi-bell me-2"></i>Известия
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Затвори"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="layoutNotificationListContainer">
+                        <div id="layoutNotificationsContent">
+                            @if (userNotifications.Any())
+                            {
+                                foreach (var userNotif in userNotifications)
+                                {
+                                    var note = userNotif.Notification;
+                                    <div class="notification-item-container">
+                                        <div class="notification-item text-white @(userNotif.IsRead ? "notification-read" : "")"
+                                             data-id="@note.Id"
+                                             data-title="@note.Title"
+                                             data-description="@note.Description"
+                                             data-datetime="@note.DateTime.ToLocalTime().ToString("g")"
+                                             data-isread="@userNotif.IsRead">
+                                            <div class="notification-title">@note.Title</div>
+                                            <div class="notification-meta">
+                                                <span>
+                                                    <i class="bi bi-clock me-1"></i>@note.DateTime.ToLocalTime().ToString("g")
+                                                </span>
+                                                <span>
+                                                    @if (userNotif.IsRead)
+                                                    {
+                                                        <i class="bi bi-check-all text-success"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="bi bi-envelope-fill text-info"></i>
+                                                    }
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-center py-4">
+                                    <i class="bi bi-bell-slash fs-1 mb-3 text-secondary"></i>
+                                    <p>Няма намерени известия.</p>
+                                </div>
+                            }
+                        </div>
+
+                        @if (userNotifications.Count > 5)
+                        {
+                            <div class="pagination-container">
+                                <button id="layoutPrevPageBtn" class="pagination-btn" disabled>
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <div id="layoutPaginationNumbers" class="d-flex"></div>
+                                <button id="layoutNextPageBtn" class="pagination-btn">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="page-info" id="layoutPageInfo"></div>
+                        }
+                    </div>
+
+                    <div id="layoutNotificationDetailContainer" style="display:none;">
+                        <h5 id="layoutDetailTitle"></h5>
+                        <div id="layoutDetailDescription" class="mt-3 mb-4"></div>
+                        <div id="layoutDetailDate" class="text-muted" style="font-size:0.85rem;">
+                            <i class="bi bi-clock me-1"></i><span id="layoutDetailDateTime"></span>
+                        </div>
+                        <form asp-controller="User" asp-action="MarkNotificationAsRead" method="post" id="layoutMarkSingleForm" class="mt-4">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="notificationId" id="layoutHiddenNotificationId" />
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-secondary" id="layoutBackToListBtn">
+                                    <i class="bi bi-arrow-left me-1"></i>Назад
+                                </button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle me-1"></i>Отбележи като прочетено
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary layout-modal-footer">
+                    <form asp-controller="User" asp-action="MarkAllAsRead" id="layoutMarkAllForm" method="post" class="m-0">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="bi bi-check-all me-1"></i>Отбележи всички като прочетени
+                        </button>
+                    </form>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Затвори</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="~/lib/iziToast/js/iziToast.min.js"></script>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const navLinks = document.querySelectorAll(".nav-link");
+            navLinks.forEach(link => {
+                link.addEventListener("mousedown", function () {
+                    this.style.transform = "scale(0.97)";
+                });
+                link.addEventListener("mouseup", function () {
+                    this.style.transform = "";
+                });
+            });
+
+            const userDropdown = document.getElementById('userDropdown');
+            const adminDropdown = document.getElementById('adminDropdown');
+
+            function keepDropdownOpen() {
+                const dropdownMenus = document.querySelectorAll('.dropdown-menu.show');
+                dropdownMenus.forEach(menu => {
+                    menu.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                });
+            }
+
+            if (userDropdown) {
+                userDropdown.addEventListener('click', function() {
+                    setTimeout(keepDropdownOpen, 100);
+                });
+            }
+
+            if (adminDropdown) {
+                adminDropdown.addEventListener('click', function(e) {
+                    const dropdown = this.closest('.dropdown');
+                    if (dropdown) {
+                        dropdown.classList.add('show');
+                    }
+                    setTimeout(keepDropdownOpen, 100);
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                if (adminDropdown && !adminDropdown.contains(e.target) && !document.querySelector('.admin-dropdown-menu').contains(e.target)) {
+                    const dropdown = adminDropdown.closest('.dropdown');
+                    if (dropdown && dropdown.classList.contains('show')) {
+                        dropdown.classList.remove('show');
+                    }
+                }
+            });
+
+            const layoutListContainer = document.getElementById("layoutNotificationListContainer");
+            const layoutDetailContainer = document.getElementById("layoutNotificationDetailContainer");
+            const layoutDetailTitle = document.getElementById("layoutDetailTitle");
+            const layoutDetailDescription = document.getElementById("layoutDetailDescription");
+            const layoutDetailDate = document.getElementById("layoutDetailDateTime");
+            const layoutHiddenNotificationId = document.getElementById("layoutHiddenNotificationId");
+
+            const itemsPerPage = 5;
+            let layoutCurrentPage = 1;
+            const layoutNotificationItems = document.querySelectorAll(".notification-item-container");
+            const layoutTotalPages = Math.ceil(layoutNotificationItems.length / itemsPerPage);
+
+            if (layoutNotificationItems.length > itemsPerPage) {
+                initLayoutPagination();
+                displayLayoutPage(1);
+            }
+
+            document.querySelectorAll(".notification-item").forEach(item => {
+                item.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    layoutDetailTitle.textContent = this.dataset.title;
+                    layoutDetailDescription.textContent = this.dataset.description;
+                    layoutDetailDate.textContent = this.dataset.datetime;
+                    layoutHiddenNotificationId.value = this.dataset.id;
+                    layoutListContainer.style.display = "none";
+                    layoutDetailContainer.style.display = "block";
+                });
+            });
+
+            document.getElementById("layoutBackToListBtn").addEventListener("click", function () {
+                layoutDetailContainer.style.display = "none";
+                layoutListContainer.style.display = "block";
+            });
+
+            const layoutMarkForm = document.getElementById("layoutMarkSingleForm");
+            layoutMarkForm.addEventListener("submit", function (e) {
+                e.preventDefault();
+                const formData = new FormData(layoutMarkForm);
+                fetch(layoutMarkForm.action, {
+                    method: "POST",
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const badge = document.querySelector(".bell-badge");
+                        const logoBadge = document.querySelector(".nav-logo-badge");
+
+                        if (badge && logoBadge) {
+                            badge.textContent = data.unreadCount;
+                            logoBadge.textContent = data.unreadCount;
+
+                            if (data.unreadCount === 0) {
+                                badge.style.display = "none";
+                                logoBadge.style.display = "none";
+                            }
+                        }
+
+                        const notifId = formData.get("notificationId");
+                        const clickedItem = document.querySelector(`.notification-item[data-id='${notifId}']`);
+                        if (clickedItem) {
+                            clickedItem.classList.add("notification-read");
+                            clickedItem.dataset.isread = "true";
+                            const statusIcon = clickedItem.querySelector(".notification-meta span:last-child i");
+                            if (statusIcon) {
+                                statusIcon.className = "bi bi-check-all text-success";
+                            }
+                        }
+                        layoutDetailContainer.style.display = "none";
+                        layoutListContainer.style.display = "block";
+                    }
+                })
+                .catch(err => console.error(err));
+            });
+
+            const layoutMarkAllForm = document.getElementById("layoutMarkAllForm");
+            layoutMarkAllForm.addEventListener("submit", function (e) {
+                e.preventDefault();
+                const formData = new FormData(layoutMarkAllForm);
+
+                fetch(layoutMarkAllForm.action, {
+                    method: "POST",
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelectorAll(".notification-item").forEach(item => {
+                            item.classList.add("notification-read");
+                            item.dataset.isread = "true";
+                            const statusIcon = item.querySelector(".notification-meta span:last-child i");
+                            if (statusIcon) {
+                                statusIcon.className = "bi bi-check-all text-success";
+                            }
+                        });
+
+                        const badge = document.querySelector(".bell-badge");
+                        const logoBadge = document.querySelector(".nav-logo-badge");
+
+                        if (badge && logoBadge) {
+                            badge.textContent = data.unreadCount;
+                            logoBadge.textContent = data.unreadCount;
+
+                            if (data.unreadCount === 0) {
+                                badge.style.display = "none";
+                                logoBadge.style.display = "none";
+                            }
+                        }
+                    } else {
+                        console.error("Failed to mark all notifications as read");
+                    }
+                })
+                .catch(err => console.error("Error during fetch:", err));
+            });
+
+            function initLayoutPagination() {
+                const prevPageBtn = document.getElementById("layoutPrevPageBtn");
+                const nextPageBtn = document.getElementById("layoutNextPageBtn");
+                const paginationNumbers = document.getElementById("layoutPaginationNumbers");
+                const pageInfo = document.getElementById("layoutPageInfo");
+
+                for (let i = 1; i <= layoutTotalPages; i++) {
+                    const pageBtn = document.createElement("button");
+                    pageBtn.className = "pagination-btn" + (i === 1 ? " active" : "");
+                    pageBtn.textContent = i;
+                    pageBtn.addEventListener("click", function() {
+                        displayLayoutPage(i);
+                    });
+                    paginationNumbers.appendChild(pageBtn);
+                }
+
+                prevPageBtn.addEventListener("click", function() {
+                    if (layoutCurrentPage > 1) {
+                        displayLayoutPage(layoutCurrentPage - 1);
+                    }
+                });
+
+                nextPageBtn.addEventListener("click", function() {
+                    if (layoutCurrentPage < layoutTotalPages) {
+                        displayLayoutPage(layoutCurrentPage + 1);
+                    }
+                });
+
+                updateLayoutPageInfo();
+            }
+
+            function displayLayoutPage(pageNumber) {
+                layoutCurrentPage = pageNumber;
+
+                const paginationBtns = document.querySelectorAll("#layoutPaginationNumbers .pagination-btn");
+                paginationBtns.forEach((btn, index) => {
+                    btn.classList.toggle("active", index + 1 === layoutCurrentPage);
+                });
+
+                const prevPageBtn = document.getElementById("layoutPrevPageBtn");
+                const nextPageBtn = document.getElementById("layoutNextPageBtn");
+                prevPageBtn.disabled = layoutCurrentPage === 1;
+                nextPageBtn.disabled = layoutCurrentPage === layoutTotalPages;
+
+                const startIndex = (layoutCurrentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+
+                layoutNotificationItems.forEach((item, index) => {
+                    item.style.display = (index >= startIndex && index < endIndex) ? "block" : "none";
+                });
+
+                updateLayoutPageInfo();
+            }
+
+            function updateLayoutPageInfo() {
+                const pageInfo = document.getElementById("layoutPageInfo");
+                if (pageInfo) {
+                    pageInfo.textContent = `Страница ${layoutCurrentPage} от ${layoutTotalPages}`;
+                }
+            }
+        });
+    </script>
+    @RenderSection("Scripts", required: false)
+    @Html.Partial("_iziToastPartial")
+</body>
+</html>

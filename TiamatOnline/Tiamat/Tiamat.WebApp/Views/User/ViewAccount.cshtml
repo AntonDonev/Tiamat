@@ -1,0 +1,687 @@
+﻿@using Tiamat.Models
+@model Tiamat.WebApp.Models.ViewAccountViewModel
+
+@{
+    Layout = "~/Views/Shared/_LayoutDashboard.cshtml";
+    ViewData["Title"] = "Преглед на акаунт";
+}
+
+@functions
+{
+    string GetStatusClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "active" => "status-active",
+            "pending" => "status-pending",
+            "failed" or "closed" => "status-red",
+            _ => ""
+        };
+    }
+}
+
+<style>
+    :root {
+        --primary-color: #4361ee;
+        --primary-hover: #3a56d4;
+        --secondary-color: #7209b7;
+        --bg-gradient: linear-gradient(135deg, #4361ee, #7209b7);
+        --text-color: #ffffff;
+        --light-text: #f8f9fa;
+        --card-bg: rgba(28, 28, 30, 0.95);
+        --input-bg: rgba(40, 40, 45, 0.9);
+        --shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        --border-radius: 12px;
+        --transition: all 0.3s ease;
+        --dark-bg: #121212;
+        --darker-bg: #0a0a0a;
+    }
+
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+
+    .account-details-container {
+        max-width: 1440px;
+        margin: 2rem auto;
+        padding: 0 2rem;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .accounts-card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .accounts-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--bg-gradient);
+    }
+
+    .accounts-card-header {
+        padding: 1.5rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .accounts-card-header h2 {
+        color: var(--text-color);
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .accounts-card-body {
+        padding: 1.5rem 2rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .account-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .account-table th {
+        text-align: left;
+        padding: 1rem;
+        color: var(--light-text);
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .account-table td {
+        padding: 1rem;
+        color: var(--light-text);
+        font-size: 0.95rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .account-table tbody tr {
+        transition: var(--transition);
+    }
+
+    .account-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background-color: var(--input-bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: var(--transition);
+        color: var(--text-color);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+        outline: none;
+    }
+
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 16px 12px;
+    }
+
+    .btn-save-changes {
+        padding: 0.6rem 1.2rem;
+        background: var(--bg-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-save-changes:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+    }
+
+    .status-active {
+        color: #2ed573;
+        background-color: rgba(46, 213, 115, 0.1);
+        border-color: rgba(46, 213, 115, 0.3);
+    }
+
+    .status-pending {
+        color: #ffa502;
+        background-color: rgba(255, 165, 2, 0.1);
+        border-color: rgba(255, 165, 2, 0.3);
+    }
+
+    .status-red {
+        color: #ff4d4d;
+        background-color: rgba(255, 77, 77, 0.1);
+        border-color: rgba(255, 77, 77, 0.3);
+    }
+
+    .no-positions {
+        text-align: center;
+        padding: 2rem;
+        color: var(--light-text);
+        font-size: 1.1rem;
+    }
+
+    .date-separator {
+        color: var(--primary-color);
+        margin: 0 0.25rem;
+    }
+
+    .open-position {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background-color: rgba(46, 213, 115, 0.2);
+        border: 1px solid rgba(46, 213, 115, 0.5);
+        color: #2ed573;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    .slide-in-left {
+        animation: slideInLeft 0.5s ease-out forwards;
+    }
+
+    .slide-in-right {
+        animation: slideInRight 0.5s ease-out forwards;
+    }
+
+    @@keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @@keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .table-row-appear {
+        animation: tableRowAppear 0.5s ease-out forwards;
+        opacity: 0;
+    }
+
+    @@keyframes tableRowAppear {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .filter-card {
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+        padding: 1.5rem;
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .filter-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--bg-gradient);
+    }
+    
+    .filter-title {
+        color: var(--text-color);
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+    }
+    
+    .filter-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: flex-end;
+    }
+    
+    .filter-group {
+        flex: 1 1 200px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .filter-group label {
+        margin-bottom: 0.5rem;
+        color: var(--light-text);
+        font-size: 0.9rem;
+    }
+    
+    .filter-submit {
+        display: flex;
+        align-items: flex-end;
+        flex: 0 0 auto;
+    }
+    
+    .apply-btn {
+        padding: 0.75rem 1.5rem;
+        background: var(--bg-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        letter-spacing: 1px;
+    }
+    
+    .apply-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+    }
+    
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .account-details-container {
+            padding: 0 1.5rem;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .account-details-container {
+            padding: 0 1rem;
+        }
+
+        .accounts-card-header, .accounts-card-body {
+            padding: 1.5rem;
+        }
+
+        .account-table th, .account-table td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+</style>
+
+<div id="particles-js"></div>
+
+<div class="account-details-container">
+    <div class="accounts-card slide-in-left">
+        <div class="accounts-card-header">
+            <h2><i class="bi bi-info-circle me-2"></i>Информация за акаунта</h2>
+        </div>
+        <div class="accounts-card-body">
+            <form method="post" asp-action="ViewAccount" asp-controller="User">
+                <input type="hidden" asp-for="AccountId" />
+                <input type="hidden" asp-for="Platform" />
+                <input type="hidden" asp-for="BrokerLogin" />
+                <input type="hidden" asp-for="BrokerPassword" />
+                <input type="hidden" asp-for="BrokerServer" />
+                <input type="hidden" asp-for="VPSName" />
+                <input type="hidden" asp-for="AdminEmail" />
+
+                <div class="table-responsive">
+                    <table class="account-table">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-person-badge me-2"></i>Име на акаунта</th>
+                                <th><i class="bi bi-cash-coin me-2"></i>Първоначален капитал</th>
+                                <th><i class="bi bi-shield-check me-2"></i>Статус</th>
+                                <th><i class="bi bi-calendar-date me-2"></i>Създаден на</th>
+                                <th><i class="bi bi-gear me-2"></i>Настройка на акаунта</th>
+                                <th><i class="bi bi-save me-2"></i>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <input asp-for="AccountName" class="form-control" />
+                                </td>
+                                <td>
+                                    <input class="form-control" value="@Model.InitialCapital" disabled />
+                                </td>
+                                <td>
+                                    <input class="form-control @GetStatusClass(Model.Status.ToString())"
+                                           value="@Model.Status" disabled />
+                                </td>
+                                <td>
+                                    <input class="form-control" value="@Model.CreatedAt.ToShortDateString()" disabled />
+                                </td>
+                                <td>
+                                    <select asp-for="AccountSettingsId" class="form-control">
+                                        <option value="">Избери</option>
+                                        @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                                        {
+                                                <option value="@setting.AccountSettingId"
+                                                        selected="@(Model.AccountSettingsId == setting.AccountSettingId ? "selected" : null)">
+                                                @setting.SettingName
+                                                </option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <button type="submit" class="btn-save-changes">
+                                        <i class="bi bi-check-circle me-2"></i>Запази промените
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="accounts-card slide-in-right">
+        <div class="accounts-card-header">
+            <h2><i class="bi bi-graph-up me-2"></i>Позиции за @Model.AccountName</h2>
+        </div>
+        <div class="accounts-card-body">
+            <div class="filter-card mb-4">
+                <h2 class="filter-title"><i class="bi bi-funnel me-2"></i>Филтриране на сделки</h2>
+                <form method="get" asp-action="ViewAccount" asp-controller="User" class="filter-form">
+                    <input type="hidden" name="id" value="@Model.AccountId" />
+                    
+                    <div class="filter-group">
+                        <label for="startDate"><i class="bi bi-calendar-date me-2"></i>От дата</label>
+                        <input type="date" id="startDate" name="startDate" class="form-control" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="endDate"><i class="bi bi-calendar-date me-2"></i>До дата</label>
+                        <input type="date" id="endDate" name="endDate" class="form-control" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="typeFilter"><i class="bi bi-arrow-down-up me-2"></i>Тип на сделката</label>
+                        <select id="typeFilter" name="typeFilter" class="form-control">
+                            <option value="">Всички</option>
+                            <option value="Покупка" selected="@(Model.TypeFilter == "Покупка")">Покупка</option>
+                            <option value="Продажба" selected="@(Model.TypeFilter == "Продажба")">Продажба</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="resultFilter"><i class="bi bi-bar-chart me-2"></i>Печалба/Загуба</label>
+                        <select id="resultFilter" name="resultFilter" class="form-control">
+                            <option value="">Всички</option>
+                            <option value="profit" selected="@(Model.ResultFilter == "profit")">Печалба</option>
+                            <option value="loss" selected="@(Model.ResultFilter == "loss")">Загуба</option>
+                            <option value="active" selected="@(Model.ResultFilter == "active")">Активни</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-submit">
+                        <button type="submit" class="apply-btn">
+                            <i class="bi bi-search me-2"></i>Приложи
+                        </button>
+                    </div>
+                </form>
+            </div>
+            @if (Model.Positions == null || !Model.Positions.Any())
+            {
+                    <div class="no-positions">
+                        <i class="bi bi-search mb-3" style="font-size: 2rem; opacity: 0.5; display: block;"></i>
+                        Няма намерени позиции за този акаунт.
+                    </div>
+            }
+            else
+            {
+                    <div class="table-responsive">
+                        <table class="account-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="bi bi-currency-exchange me-2"></i>Символ</th>
+                                    <th><i class="bi bi-arrow-down-up me-2"></i>Тип</th>
+                                    <th><i class="bi bi-rulers me-2"></i>Размер</th>
+                                    <th><i class="bi bi-exclamation-triangle me-2"></i>Риск</th>
+                                    <th><i class="bi bi-calendar-range me-2"></i>Дата</th>
+                                    <th><i class="bi bi-bar-chart me-2"></i>Резултат</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var pos in Model.Positions.Select((value, i) => new { Value = value, Index = i }))
+                            {
+                                        <tr class="table-row-appear" style="animation-delay: @(pos.Index * 0.1)s">
+                                            <td>@pos.Value.Symbol</td>
+                                            <td>@pos.Value.Type</td>
+                                            <td>@pos.Value.Size</td>
+                                            <td>@pos.Value.Risk</td>
+                                            <td>
+                                        @if (pos.Value.ClosedAt.HasValue)
+                                        {
+                                            @pos.Value.OpenedAt.ToShortDateString() <span class="date-separator"> - </span> @pos.Value.ClosedAt.Value.ToShortDateString()
+                                        }
+                                        else
+                                        {
+                                            @pos.Value.OpenedAt.ToShortDateString()
+                                        }
+                                            </td>
+                                            <td>
+                                        @if (pos.Value.Result.HasValue)
+                                        {
+                                                        <span style="color: @(pos.Value.Result > 0 ? "#2ed573" : "#ff4d4d")">
+                                                @pos.Value.Result @(pos.Value.Result > 0 ? "+" : "")
+                                                        </span>
+                                        }
+                                        else
+                                        {
+                                                        <span class="open-position">АКТИВЕН</span>
+                                        }
+                                            </td>
+                                        </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+        <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                particlesJS('particles-js', {
+                    "particles": {
+                        "number": {
+                            "value": 80,
+                            "density": {
+                                "enable": true,
+                                "value_area": 800
+                            }
+                        },
+                        "color": {
+                            "value": "#4361ee"
+                        },
+                        "shape": {
+                            "type": "circle",
+                            "stroke": {
+                                "width": 0,
+                                "color": "#000000"
+                            },
+                            "polygon": {
+                                "nb_sides": 5
+                            }
+                        },
+                        "opacity": {
+                            "value": 0.5,
+                            "random": false,
+                            "anim": {
+                                "enable": false,
+                                "speed": 1,
+                                "opacity_min": 0.1,
+                                "sync": false
+                            }
+                        },
+                        "size": {
+                            "value": 3,
+                            "random": true,
+                            "anim": {
+                                "enable": false,
+                                "speed": 40,
+                                "size_min": 0.1,
+                                "sync": false
+                            }
+                        },
+                        "line_linked": {
+                            "enable": true,
+                            "distance": 150,
+                            "color": "#7209b7",
+                            "opacity": 0.4,
+                            "width": 1
+                        },
+                        "move": {
+                            "enable": true,
+                            "speed": 2,
+                            "direction": "none",
+                            "random": false,
+                            "straight": false,
+                            "out_mode": "out",
+                            "bounce": false,
+                            "attract": {
+                                "enable": false,
+                                "rotateX": 600,
+                                "rotateY": 1200
+                            }
+                        }
+                    },
+                    "interactivity": {
+                        "detect_on": "canvas",
+                        "events": {
+                            "onhover": {
+                                "enable": true,
+                                "mode": "grab"
+                            },
+                            "onclick": {
+                                "enable": true,
+                                "mode": "push"
+                            },
+                            "resize": true
+                        },
+                        "modes": {
+                            "grab": {
+                                "distance": 140,
+                                "line_linked": {
+                                    "opacity": 1
+                                }
+                            },
+                            "bubble": {
+                                "distance": 400,
+                                "size": 40,
+                                "duration": 2,
+                                "opacity": 8,
+                                "speed": 3
+                            },
+                            "repulse": {
+                                "distance": 200,
+                                "duration": 0.4
+                            },
+                            "push": {
+                                "particles_nb": 4
+                            },
+                            "remove": {
+                                "particles_nb": 2
+                            }
+                        }
+                    },
+                    "retina_detect": true
+                });
+
+                const tableRows = document.querySelectorAll('.table-row-appear');
+                tableRows.forEach((row, index) => {
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.style.opacity = '1';
+                        row.style.transform = 'translateY(0)';
+                    }, 100 * index);
+                });
+
+                const formInputs = document.querySelectorAll('.form-control');
+                formInputs.forEach((input, index) => {
+                    input.style.opacity = '0';
+                    setTimeout(() => {
+                        input.style.transition = 'all 0.3s ease';
+                        input.style.opacity = '1';
+                    }, 50 * index);
+                });
+            });
+        </script>
+
+    @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
