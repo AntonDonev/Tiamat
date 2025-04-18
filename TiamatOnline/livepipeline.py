@@ -16,12 +16,11 @@ import ta
 import joblib
 
 HOST = "0.0.0.0"
-HTTP_PORT = 8020  # Changed from 8000 to 8020 for receiving bars
-API_PORT = 8000   # New port for ASP.NET API communication
+HTTP_PORT = 8020
+API_PORT = 8000
 
 SOCKET_PORT = 12345
 
-# ASP.NET API configuration
 ASPNET_API_URL = "https://tiamat.kzpmg.com/api/python"
 API_KEY = "soPibUUmQmYWfCs3IA9BwrjBEI8qQkSeq7wxQP00q7mkw4UBlSV5zekYr3iTqanmVkSUsaapIfc79wWteD6yoOpSUaryh2pUacToU2BaHjyz9tCDQprJMLAPXqb0Marc"
 ALLOWED_ASPNET_IPS = ["178.169.181.27", "127.0.0.1", "localhost"]
@@ -42,12 +41,9 @@ def find_most_recent_swing_high(df, lookback=50):
     A swing high is defined as a bar with higher high than both neighboring bars.
     Returns the index and the bar data for the middle bar of the swing high.
     """
-    # Start from 3rd-last bar and go back in time
     for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-        # Check if bar i forms a swing high (middle bar has higher high than neighbors)
         if (df.iloc[i]['high'] > df.iloc[i-1]['high'] and 
             df.iloc[i]['high'] > df.iloc[i+1]['high']):
-            # Return index of middle bar and its values
             return i, df.iloc[i]
     return None, None
 
@@ -57,12 +53,9 @@ def find_most_recent_swing_low(df, lookback=50):
     A swing low is defined as a bar with lower low than both neighboring bars.
     Returns the index and the bar data for the middle bar of the swing low.
     """
-    # Start from 3rd-last bar and go back in time
     for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-        # Check if bar i forms a swing low (middle bar has lower low than neighbors)
         if (df.iloc[i]['low'] < df.iloc[i-1]['low'] and 
             df.iloc[i]['low'] < df.iloc[i+1]['low']):
-            # Return index of middle bar and its values
             return i, df.iloc[i]
     return None, None
 
@@ -148,106 +141,78 @@ def engineer_features(df):
     df = df.copy()
     df.sort_values('timestamp', inplace=True)
     
-    # === TIME-BASED FEATURES ===
-    # Extract time-of-day features
     df['hour'] = df['timestamp'].dt.hour
     
-    # Session flags
     df['asian_session'] = ((df['hour'] >= 0) & (df['hour'] < 8)).astype(int)
     df['london_session'] = ((df['hour'] >= 8) & (df['hour'] < 16)).astype(int)
     
-    # === MOVING AVERAGE INDICATORS ===
-    # Calculate various moving averages for crossover signals
-    # EMA - Fast/Medium timeframes
     df['ema_9'] = df['close'].ewm(span=9, adjust=False).mean()
     df['ema_21'] = df['close'].ewm(span=21, adjust=False).mean()
     
-    # SMA - Slower timeframes
     df['sma_50'] = df['close'].rolling(window=50).mean()
     df['sma_200'] = df['close'].rolling(window=200).mean()
     
-    # Moving average crossover signals (relative)
     df['ma_cross_9_21'] = df['ema_9'] / df['ema_21'] - 1
     df['ma_cross_50_200'] = df['sma_50'] / df['sma_200'] - 1
     
-    # Price relative to moving averages
     df['price_to_ema_9'] = df['close'] / df['ema_9'] - 1
     df['price_to_ema_21'] = df['close'] / df['ema_21'] - 1
     df['price_to_sma_50'] = df['close'] / df['sma_50'] - 1
     df['price_to_sma_200'] = df['close'] / df['sma_200'] - 1
     
-    # Moving average slopes (percentage change)
     df['ema_9_slope'] = df['ema_9'].pct_change(5)
     df['ema_21_slope'] = df['ema_21'].pct_change(5)
     df['sma_50_slope'] = df['sma_50'].pct_change(10)
     df['sma_200_slope'] = df['sma_200'].pct_change(20)
     
-    # Calculate trend streak
     df['trend_direction'] = np.sign(df['close'] - df['sma_50'])
     df['trend_direction_change'] = df['trend_direction'].diff().ne(0).astype(int)
     df['trend_streak'] = df.groupby(df['trend_direction_change'].cumsum())['trend_direction_change'].cumcount()
-    df['trend_streak'] = np.minimum(df['trend_streak'], 20)  # Cap at 20 for stability
+    df['trend_streak'] = np.minimum(df['trend_streak'], 20)
     
-    # === MACD INDICATOR ===
-    # Standard MACD (12, 26, 9)
     macd = ta.trend.MACD(df['close'], window_fast=12, window_slow=26, window_sign=9)
     df['macd_line'] = macd.macd()
     df['macd_signal'] = macd.macd_signal()
     df['macd_histogram'] = macd.macd_diff()
     
-    # Normalize MACD relative to price
     df['macd_line_pct'] = df['macd_line'] / df['close'] * 100
     df['macd_signal_pct'] = df['macd_signal'] / df['close'] * 100
     df['macd_histogram_pct'] = df['macd_histogram'] / df['close'] * 100
     
-    # === PARABOLIC SAR ===
     psar = ta.trend.PSARIndicator(df['high'], df['low'], df['close'], step=0.02, max_step=0.2)
     df['psar'] = psar.psar()
     
-    # PSAR relative to price
     df['psar_distance'] = (df['close'] - df['psar']) / df['close']
     
-    # === ICHIMOKU CLOUD ===
     ichimoku = ta.trend.IchimokuIndicator(df['high'], df['low'], window1=9, window2=26, window3=52)
-    df['ichimoku_a'] = ichimoku.ichimoku_a()  # Senkou Span A
-    df['ichimoku_b'] = ichimoku.ichimoku_b()  # Senkou Span B
-    df['ichimoku_base'] = ichimoku.ichimoku_base_line()  # Kijun-sen
+    df['ichimoku_a'] = ichimoku.ichimoku_a()
+    df['ichimoku_b'] = ichimoku.ichimoku_b()
+    df['ichimoku_base'] = ichimoku.ichimoku_base_line()
     
-    # Relative positions
     df['price_to_kijun'] = df['close'] / df['ichimoku_base'] - 1
     df['tenkan_kijun_cross'] = ichimoku.ichimoku_conversion_line() / df['ichimoku_base'] - 1
     
-    # Cloud analysis
     df['cloud_thickness'] = (df['ichimoku_a'] - df['ichimoku_b']) / df['close']
     
-    # === MOMENTUM INDICATORS ===
-    # RSI with both 7 and 14 periods
     df['rsi_7'] = ta.momentum.RSIIndicator(df['close'], window=7).rsi()
     df['rsi_14'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
     
-    # Additional momentum indicators
     df['roc_5'] = ta.momentum.ROCIndicator(df['close'], window=5).roc()
     df['roc_10'] = ta.momentum.ROCIndicator(df['close'], window=10).roc()
     df['roc_20'] = ta.momentum.ROCIndicator(df['close'], window=20).roc()
     
-    # Fisher Transform of RSI
     rsi_scaled = 2 * (df['rsi_14'] - 50) / 100
     df['fisher_rsi_14'] = 0.5 * np.log((1 + rsi_scaled) / (1 - rsi_scaled + 1e-9))
     
-    # === VOLATILITY INDICATORS ===
-    # Bollinger Bands with 20-period window
     boll = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
     df['boll_pct_b'] = boll.bollinger_pband()
     df['boll_width'] = boll.bollinger_wband()
     
-    # ATR as percentage of price with 14-period window
     atr_raw = ta.volatility.AverageTrueRange(
         df['high'], df['low'], df['close'], window=14
     ).average_true_range()
     df['atr_pct'] = atr_raw / df['close'] * 100
     
-    # === TREND INDICATORS ===
-    # ADX with both 5 and 14 period windows
     adx5 = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=5)
     df['adx5'] = adx5.adx()
     
@@ -256,12 +221,9 @@ def engineer_features(df):
     df['adx_pos'] = adx.adx_pos()
     df['adx_neg'] = adx.adx_neg()
     
-    # Trend strength and direction combined
     df['adx_trend_strength'] = df['adx'] * np.sign(df['adx_pos'] - df['adx_neg'])
     df['di_spread'] = (df['adx_pos'] - df['adx_neg']) / (df['adx_pos'] + df['adx_neg'] + 1e-9)
     
-    # === DONCHIAN CHANNELS ===
-    # Standard 20-period Donchian
     donch = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=20)
     df['donchian_high'] = donch.donchian_channel_hband()
     df['donchian_low'] = donch.donchian_channel_lband()
@@ -269,7 +231,6 @@ def engineer_features(df):
     df['donchian_pos'] = (df['close'] - df['donchian_low']) / (df['donchian_high'] - df['donchian_low'] + 1e-9)
     df['donchian_width'] = (df['donchian_high'] - df['donchian_low']) / df['donchian_mid']
     
-    # Extended 55-period Donchian
     donch55 = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=55)
     high_band55 = donch55.donchian_channel_hband()
     low_band55 = donch55.donchian_channel_lband()
@@ -277,65 +238,48 @@ def engineer_features(df):
     df['donchian_pos_55'] = (df['close'] - low_band55) / (high_band55 - low_band55 + 1e-9)
     df['donchian_width_55'] = (high_band55 - low_band55) / mid_band55
     
-    # === VOLUME-PRICE CORRELATION ===
-    # Calculate rolling correlation between price and volume
     df['volume_price_corr'] = df['close'].rolling(window=20).corr(df['tick_volume'])
     
-    # Volume relative to its moving average
     df['volume_ratio'] = df['tick_volume'] / df['tick_volume'].rolling(window=20).mean()
     
-    # On-balance volume indicators
     obv = ta.volume.OnBalanceVolumeIndicator(df['close'], df['tick_volume'])
     df['obv_raw'] = obv.on_balance_volume()
     df['obv_ema'] = df['obv_raw'].ewm(span=20, adjust=False).mean()
     df['obv_change'] = df['obv_raw'].pct_change(20)
     df['obv_slope'] = (df['obv_raw'] - df['obv_raw'].shift(5)) / (df['obv_raw'].shift(5) + 1e-9)
     
-    # === RETURNS AND RELATIVE PRICE INDICATORS === 
-    # Various timeframe returns
     for lag in range(1, 6):
         df[f'return_lag_{lag}'] = df['close'].pct_change(lag)
     
-    # Price to moving average ratio
     for window in [10, 20, 100]:
         df[f'price_to_ma_{window}'] = df['close'] / df['close'].rolling(window=window).mean() - 1
     
-    # Volatility measures
     df['volatility_10'] = df['close'].rolling(window=10).std() / df['close'].rolling(window=10).mean()
     df['volatility_20'] = df['close'].rolling(window=20).std() / df['close'].rolling(window=20).mean()
     
-    # Momentum
     df['momentum_5d'] = df['close'].pct_change(5)
     df['momentum_20d'] = df['close'].pct_change(20)
     
-    # Candle attributes
     df['high_low_pct'] = (df['high'] - df['low']) / df['close']
     df['open_close_pct'] = (df['close'] - df['open']) / df['open']
     
-    # === PRICE MOVEMENT PATTERNS ===
-    # Percentage distance from recent highs/lows
     df['pct_from_20d_high'] = df['close'] / df['high'].rolling(20).max() - 1
     df['pct_from_20d_low'] = df['close'] / df['low'].rolling(20).min() - 1
     
-    # === MEAN REVERSION INDICATORS ===
-    # Z-score of price
     rolling_mean10 = df['close'].rolling(window=10).mean()
     rolling_std10 = df['close'].rolling(window=10).std()
     df['z_score_10'] = (df['close'] - rolling_mean10) / rolling_std10
     
-    # Additional z-scores
     for window in [20, 50]:
         rolling_mean = df['close'].rolling(window=window).mean()
         rolling_std = df['close'].rolling(window=window).std()
         df[f'z_score_{window}'] = (df['close'] - rolling_mean) / rolling_std
     
-    # Event proximity flag
     if 'until_invalid' in df.columns:
         df['is_event_near'] = df['until_invalid'].shift(1) < 1
     else:
         df['is_event_near'] = False
 
-    # Drop rows with NaN values
     df.dropna(inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
@@ -355,7 +299,7 @@ def get_neg_pos_bin_indices(bin_edges: np.ndarray):
 
 def aggregate_signal(proba, price, bin_edges, model_classes, prob_threshold, price_to_sma_50):
     """
-    Aggregate signal generation with trend filter similar to yahtrainfinalweh.py
+    Aggregate signal generation with trend filter similar to trainfinal.py
     
     Args:
         proba: Probability predictions from the model
@@ -403,7 +347,6 @@ def aggregate_signal(proba, price, bin_edges, model_classes, prob_threshold, pri
     
     prob_diff = agg_pos - agg_neg
     
-    # Initial signal determination based on probability difference
     if prob_diff >= prob_threshold:
         signal = 1
         tp = price + weighted_pos_move
@@ -414,19 +357,14 @@ def aggregate_signal(proba, price, bin_edges, model_classes, prob_threshold, pri
         signal = 0
         tp = None
     
-    # Apply trend filter logic similar to yahtrainfinalweh.py
-    # For short signals, require stronger confirmation in uptrends
     if signal == -1 and price_to_sma_50 > 0:
-        # In uptrend, require stronger probability for shorts
-        if -prob_diff < (prob_threshold * 1.2):  # 20% higher threshold for shorts in uptrend
+        if -prob_diff < (prob_threshold * 1.2):
             logger.info("Short signal rejected due to uptrend (higher threshold required)")
             signal = 0
             tp = None
     
-    # For long signals, require stronger confirmation in downtrends
     if signal == 1 and price_to_sma_50 < 0:
-        # In downtrend, require stronger probability for longs
-        if prob_diff < (prob_threshold * 1.2):  # 20% higher threshold for longs in downtrend
+        if prob_diff < (prob_threshold * 1.2):
             logger.info("Long signal rejected due to downtrend (higher threshold required)")
             signal = 0
             tp = None
@@ -793,7 +731,6 @@ class AspNetApiClient:
         self.api_url = api_url.rstrip('/')
         self.api_key = api_key
         
-        # Exact Postman-style headers
         self.headers = {
             'Content-Type': 'application/json',
             'User-Agent': 'PostmanRuntime/7.32.3',
@@ -810,7 +747,6 @@ class AspNetApiClient:
     
     def send_open_confirm(self, message_parts, client_ip):
         try:
-            # Get the original ID (only used for internal tracking)
             id_part = message_parts[1] if len(message_parts) > 1 else ""
             internal_id = id_part.replace("ID=", "").strip()
             
@@ -831,12 +767,10 @@ class AspNetApiClient:
                 logger.warning(f"Could not parse date '{opened_at_str}': {e}")
                 opened_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             
-            # Important: Use the last parameter as the actual ID for the API
-            # Remove any null bytes or unwanted characters
             api_id = message_parts[7].strip().replace('\x00', '') if len(message_parts) > 7 else internal_id
             
             data = {
-                "id": api_id,  # Use the last number as the ID
+                "id": api_id,
                 "symbol": symbol,
                 "type": type,
                 "size": float(size),
@@ -847,13 +781,10 @@ class AspNetApiClient:
             
             logger.info(f"Sending OPEN_CONFIRM to ASP.NET API: {data}")
             
-            # Update Postman token on each request
             self.headers['Postman-Token'] = self._generate_token()
 
-            # Try with exact URL
             url = f"{self.api_url}/open-confirm"
             
-            # First attempt - API key in header
             try:
                 logger.info(f"Trying Postman-style request: {url}")
                 payload = json.dumps(data)
@@ -867,7 +798,6 @@ class AspNetApiClient:
             except Exception as e:
                 logger.warning(f"Error with Postman-style request: {e}")
             
-            # Second attempt - API key in URL
             try:
                 url_with_key = f"{url}?x-api-key={self.api_key}"
                 headers_without_key = self.headers.copy()
@@ -886,7 +816,6 @@ class AspNetApiClient:
             except Exception as e:
                 logger.warning(f"Error with URL param approach: {e}")
             
-            # Fall back to original approaches
             for api_key_location in ['header', 'url', 'both']:
                 for content_type in ['application/json', 'application/x-www-form-urlencoded']:
                     try:
@@ -914,7 +843,6 @@ class AspNetApiClient:
                             payload = json.dumps(data)
                             response = requests.request("POST", url_to_use, headers=headers, data=payload)
                         else:
-                            # Convert to form data
                             form_data = {k: str(v) for k, v in data.items()}
                             response = requests.request("POST", url_to_use, headers=headers, data=form_data)
                         
@@ -934,7 +862,6 @@ class AspNetApiClient:
     
     def send_closed_confirm(self, message_parts, client_ip):
         try:
-            # Get the original ID (only used for internal tracking)
             id_part = message_parts[1] if len(message_parts) > 1 else ""
             internal_id = id_part.replace("ID=", "").strip()
             
@@ -952,12 +879,10 @@ class AspNetApiClient:
                 logger.warning(f"Could not parse date '{closed_at_str}': {e}")
                 closed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             
-            # Important: Use the last parameter as the actual ID for the API
-            # Remove any null bytes or unwanted characters
             api_id = message_parts[6].strip().replace('\x00', '') if len(message_parts) > 6 else internal_id
             
             data = {
-                "id": api_id,  # Use the last number as the ID
+                "id": api_id,
                 "profit": float(profit),
                 "currentCapital": float(current_capital),
                 "closedAt": closed_at,
@@ -966,13 +891,10 @@ class AspNetApiClient:
             
             logger.info(f"Sending CLOSED_CONFIRM to ASP.NET API: {data}")
             
-            # Update Postman token on each request
             self.headers['Postman-Token'] = self._generate_token()
             
-            # Try with exact URL but for closed-confirm
             url = f"{self.api_url}/closed-confirm"
             
-            # First attempt - API key in header
             try:
                 logger.info(f"Trying Postman-style request: {url}")
                 payload = json.dumps(data)
@@ -986,7 +908,6 @@ class AspNetApiClient:
             except Exception as e:
                 logger.warning(f"Error with Postman-style request: {e}")
             
-            # Second attempt - API key in URL
             try:
                 url_with_key = f"{url}?x-api-key={self.api_key}"
                 headers_without_key = self.headers.copy()
@@ -1005,7 +926,6 @@ class AspNetApiClient:
             except Exception as e:
                 logger.warning(f"Error with URL param approach: {e}")
             
-            # Fall back to original approaches
             for api_key_location in ['header', 'url', 'both']:
                 for content_type in ['application/json', 'application/x-www-form-urlencoded']:
                     try:
@@ -1033,7 +953,6 @@ class AspNetApiClient:
                             payload = json.dumps(data)
                             response = requests.request("POST", url_to_use, headers=headers, data=payload)
                         else:
-                            # Convert to form data
                             form_data = {k: str(v) for k, v in data.items()}
                             response = requests.request("POST", url_to_use, headers=headers, data=form_data)
                         
@@ -1053,12 +972,10 @@ class AspNetApiClient:
     
     def check_health(self):
         try:
-            # Update Postman token for health check
             self.headers['Postman-Token'] = self._generate_token()
             
             url = f"{self.api_url}/health"
             
-            # First try with Postman-style headers and API key in header
             logger.info(f"Health check: {url}")
             response = requests.request("GET", url, headers=self.headers)
             
@@ -1066,7 +983,6 @@ class AspNetApiClient:
                 logger.info(f"Health check successful with Postman headers")
                 return True
                 
-            # Try with API key in URL
             url_with_key = f"{url}?x-api-key={self.api_key}"
             headers_without_key = self.headers.copy()
             if 'x-api-key' in headers_without_key:
@@ -1079,7 +995,6 @@ class AspNetApiClient:
                 logger.info(f"Health check successful with URL param")
                 return True
             
-            # Try simpler variants
             simple_headers = {
                 'Accept': '*/*',
                 'x-api-key': self.api_key
@@ -1125,14 +1040,11 @@ class LivePipelineTrader:
         
         self.allowed_devices = {}
         
-        # Initialize DLL Socket Server
         self.socket_server = DllSocketServer(self, HOST, SOCKET_PORT, self.allowed_devices)
         self.socket_server.start()
         
-        # Initialize ASP.NET API Client
         self.asp_net_client = AspNetApiClient(ASPNET_API_URL, API_KEY)
         
-        # Set up API Request Handler for commands from ASP.NET
         ApiRequestHandler.pipeline_trader = self
         api_server_address = (HOST, API_PORT)
         self.api_httpd = HTTPServer(api_server_address, ApiRequestHandler)
@@ -1141,7 +1053,6 @@ class LivePipelineTrader:
         api_server_thread = threading.Thread(target=self.api_httpd.serve_forever, daemon=True)
         api_server_thread.start()
         
-        # Try to check ASP.NET API health
         self.asp_net_client.check_health()
 
     def load_model(self, model_path):
@@ -1192,20 +1103,16 @@ class LivePipelineTrader:
         signal_direction = "BUY" if signal_type == 1 else "SELL"
         
         for trade in self.active_trades:
-            # If we have a trade in the same direction
             if (trade["type"] == "BUY" and signal_type == 1) or (trade["type"] == "SELL" and signal_type == -1):
                 logger.info(f"New {signal_direction} signal conflicts with existing {trade['type']} trade ID={trade['id']}")
                 return True
                 
-            # Check if current price is within the boundaries of existing trade
             if trade["type"] == "BUY":
-                # For a BUY trade, we have a range from entry price to SL (below entry)
                 trade_low = trade["entry_price"] - (trade["take_profit"] - trade["entry_price"]) * 1.5
                 if current_price < trade["take_profit"] and current_price > trade_low:
                     logger.info(f"New {signal_direction} signal within price range of existing BUY trade ID={trade['id']}")
                     return True
-            else:  # SELL trade
-                # For a SELL trade, we have a range from entry price to SL (above entry)
+            else:
                 trade_high = trade["entry_price"] + (trade["entry_price"] - trade["take_profit"]) * 1.5
                 if current_price > trade["take_profit"] and current_price < trade_high:
                     logger.info(f"New {signal_direction} signal within price range of existing SELL trade ID={trade['id']}")
@@ -1227,19 +1134,16 @@ class LivePipelineTrader:
             sl_hit = False
             reason = ""
             
-            # Calculate SL price (not sent to clients but used internally)
             if trade["type"] == "BUY":
                 sl_price = trade["entry_price"] - (trade["take_profit"] - trade["entry_price"]) * 1.5
-                # Check if TP or SL hit
                 if current_price >= trade["take_profit"]:
                     tp_hit = True
                     reason = "TP"
                 elif current_price <= sl_price:
                     sl_hit = True
                     reason = "SL"
-            else:  # SELL trade
+            else:
                 sl_price = trade["entry_price"] + (trade["entry_price"] - trade["take_profit"]) * 1.5
-                # Check if TP or SL hit
                 if current_price <= trade["take_profit"]:
                     tp_hit = True
                     reason = "TP"
@@ -1250,7 +1154,6 @@ class LivePipelineTrader:
             if tp_hit or sl_hit:
                 trades_to_close.append((trade["id"], reason))
         
-        # Send close signals for trades that hit TP or SL
         for trade_id, reason in trades_to_close:
             msg = f"CLOSE|ID={trade_id}|{reason}"
             logger.info(f"Closing trade ID={trade_id}, reason={reason}")
@@ -1260,7 +1163,7 @@ class LivePipelineTrader:
         logger.debug(f"New bar received: {bar_dict}")
         self.data_buffer.append(bar_dict)
         
-        if len(self.data_buffer.buffer) < 200:  # Need at least 200 bars for proper feature engineering
+        if len(self.data_buffer.buffer) < 200:
             logger.debug(f"Buffer too small ({len(self.data_buffer.buffer)}), waiting for more data")
             return
         
@@ -1276,23 +1179,18 @@ class LivePipelineTrader:
         last_row = df_feat.iloc[-1]
         current_price = last_row["close"]
         
-        # Check if any active trades have hit TP or SL
         self.check_tp_sl_hits(current_price)
         
-        # Find most recent swing highs and lows for S/R levels
         swing_high_idx, swing_high_bar = find_most_recent_swing_high(df_feat, lookback=50)
         swing_low_idx, swing_low_bar = find_most_recent_swing_low(df_feat, lookback=50)
         
-        # Get the current bar's info
         current_close = last_row["close"]
         
-        # Determine S/R levels and if conditions are met
         resistance_level = None
         support_level = None
         sell_condition_met = False
         buy_condition_met = False
         
-        # Display the trade entry conditions with specific values at start of logging
         logger.info("==== TRADE ENTRY CONDITIONS ====")
         
         if swing_high_bar is not None:
@@ -1319,7 +1217,6 @@ class LivePipelineTrader:
         
         logger.info("===============================")
         
-        # Log the current bar data with S/R conditions
         try:
             logger.info(
                 "Bar: time=%s open=%.2f high=%.2f low=%.2f close=%.2f vol=%.1f rsi_14=%.2f until_invalid=%d",
@@ -1333,7 +1230,6 @@ class LivePipelineTrader:
                 int(last_row["until_invalid"])
             )
             
-            # Additional information about the swing points
             if swing_high_bar is not None:
                 logger.info(f"Last swing HIGH: time={swing_high_bar['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}, "
                           f"O={swing_high_bar['open']:.2f}, H={swing_high_bar['high']:.2f}, "
@@ -1350,8 +1246,6 @@ class LivePipelineTrader:
         if last_row['until_invalid'] == 0:
             logger.info("Trading during invalid period (news or maintenance), but continuing to generate signals")
         
-        # Feature preparation code remains the same
-        # Check if we have the specific features needed by the model
         if self.features_to_use:
             missing_features = []
             for col in self.features_to_use:
@@ -1367,7 +1261,6 @@ class LivePipelineTrader:
             features_to_use = [c for c in df_feat.columns if c not in ['timestamp', 'until_invalid']]
             X_last = pd.DataFrame(last_row[features_to_use]).T.astype(float)
         
-        # Check for NaN values in the dataframe
         if X_last.isnull().any().any():
             logger.warning("NaN values in input features")
             return
@@ -1375,7 +1268,6 @@ class LivePipelineTrader:
         proba = self.model.predict_proba(X_last)[0]
         logger.debug(f"Model prediction shape={proba.shape}")
         
-        # Pass price_to_sma_50 to aggregate_signal for trend filtering
         price_to_sma_50 = last_row['price_to_sma_50']
         
         signal, w_pos, w_neg, tp = aggregate_signal(
@@ -1390,7 +1282,6 @@ class LivePipelineTrader:
         
         if signal != 0:
             try:
-                # Apply the NEW trading rules based on swing points
                 if signal == -1:
                     if resistance_level is None:
                         logger.info(f"⚠️ SELL signal invalidated: No recent swing high found")
@@ -1420,8 +1311,6 @@ class LivePipelineTrader:
             logger.info("No trade signal generated")
             return
         
-        # Rest of the method remains unchanged
-        # Check if the new signal conflicts with existing trades
         if self.check_existing_trade_conflict(signal, current_price):
             logger.info(f"Trade signal invalidated due to conflict with existing trades")
             return
@@ -1432,13 +1321,12 @@ class LivePipelineTrader:
         acct_id = next(iter(self.account_risk_map), 125)
         risk_percent = self.account_risk_map.get(acct_id, 1.0)
         
-        # Calculate TP and SL
-        if signal == 1:  # BUY
+        if signal == 1:
             take_profit = current_price + w_pos
-            stop_loss = current_price - (w_pos * 1.5)  # SL = 1.5 * TP distance
-        else:  # SELL
+            stop_loss = current_price - (w_pos * 1.5)
+        else:
             take_profit = current_price - w_neg
-            stop_loss = current_price + (w_neg * 1.5)  # SL = 1.5 * TP distance
+            stop_loss = current_price + (w_neg * 1.5)
         
         trade_info = {
             "id": trade_id,
@@ -1450,7 +1338,7 @@ class LivePipelineTrader:
             "weighted_pos_move": w_pos,
             "weighted_neg_move": w_neg,
             "take_profit": take_profit,
-            "stop_loss": stop_loss,  # Add SL for internal tracking
+            "stop_loss": stop_loss,
             "until_invalid": last_row['until_invalid']
         }
         self.active_trades.append(trade_info)
@@ -1460,7 +1348,6 @@ class LivePipelineTrader:
             ttype, trade_id, acct_id, risk_percent, current_price, take_profit, stop_loss, int(last_row['until_invalid'])
         )
         
-        # Important: Do not include SL in the OPEN message as requested
         msg = f"OPEN|ID={trade_id}|{ttype}|XAUUSD|TP={take_profit:.2f}|MinutesUntilInvalid={int(last_row['until_invalid'])}"
         logger.info(f"Sending signal: {msg}")
         
@@ -1489,7 +1376,6 @@ def main():
     try:
         pipeline_trader = LivePipelineTrader(MODEL_BUNDLE_PATH)
         
-        # Set up HTTP Server for receiving market bars
         BarsRequestHandler.pipeline_trader = pipeline_trader
         bars_server_address = (HOST, HTTP_PORT)
         bars_httpd = HTTPServer(bars_server_address, BarsRequestHandler)
