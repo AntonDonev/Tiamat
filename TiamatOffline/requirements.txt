@@ -1,0 +1,1 @@
+numpy pandas scikit-learn lightgbm optuna joblib ta backtesting matplotlib requests questdb
