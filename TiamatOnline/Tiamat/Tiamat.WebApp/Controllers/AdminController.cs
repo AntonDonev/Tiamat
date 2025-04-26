@@ -47,6 +47,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Notification(NotificationViewModel model)
         {
             if (!ModelState.IsValid)
@@ -132,6 +133,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UserCenter(RegisterUserViewModel model)
         {
             if (ModelState.IsValid)
@@ -271,6 +273,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
         public async Task<IActionResult> ApproveAccount(Guid id, string title, string message, bool useDefaultMessage, string VPSName, string AffiliatedIP)
         {
@@ -309,6 +312,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
         {
 
