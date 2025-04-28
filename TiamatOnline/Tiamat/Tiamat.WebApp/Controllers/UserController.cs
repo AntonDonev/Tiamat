@@ -518,8 +518,16 @@ namespace Tiamat.WebApp.Controllers
 
             try
             {
+                account.UserId = userId;
+                account.Id = Guid.NewGuid();
+                account.CreatedAt = DateTime.UtcNow;
+                account.Status = AccountStatus.Pending;
+                account.HighestCapital = account.InitialCapital;
+                account.LowestCapital = account.InitialCapital;
+                account.CurrentCapital = account.InitialCapital;
+                account.Affiliated_IP = null;
 
-                await _accountService.CreateAccountAsync(userId);
+                await _accountService.CreateAccountAsync(account);
 
                 TempData["AlertMessage"] = "Акаунтът е създаден успешно!";
                 TempData["AlertTitle"] = "Успех";

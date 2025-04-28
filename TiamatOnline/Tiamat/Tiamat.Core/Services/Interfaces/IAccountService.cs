@@ -24,6 +24,5 @@ namespace Tiamat.Core.Services.Interfaces
         Task<IEnumerable<(Guid, string?)>> AllAccountsAsync();
         Task<Account> GetAccountByIpAsync(string Ip);
         Task<Account> GetAccountWithPositionsAsync(Guid id);
-        Task CreateAccountAsync(Guid UserId);
     }
 }
