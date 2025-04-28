@@ -50,6 +50,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string username, string password, bool rememberMe)
         {
             var result = await _signInManager.PasswordSignInAsync(username, password, rememberMe, false);

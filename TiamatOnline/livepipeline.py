@@ -35,28 +35,36 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
-def find_most_recent_swing_high(df, lookback=50):
+def find_most_recent_swing_high(df, lookback=100): # <-- Increased lookback to 100
     """
-    Find the most recent swing high within the lookback period.
-    A swing high is defined as a bar with higher high than both neighboring bars.
-    Returns the index and the bar data for the middle bar of the swing high.
+    Find the most recent 5-bar swing high within the lookback period.
+    A swing high is defined as a bar with a higher high than the two preceding
+    and two succeeding bars.
+    Returns the index and the bar data for the middle bar (bar 3) of the swing high.
     """
     for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-        if (df.iloc[i]['high'] > df.iloc[i-1]['high'] and 
-            df.iloc[i]['high'] > df.iloc[i+1]['high']):
-            return i, df.iloc[i]
+         if i >= 2 and i+2 < len(df):
+            if (df.iloc[i]['high'] > df.iloc[i-1]['high'] and
+                df.iloc[i]['high'] > df.iloc[i-2]['high'] and
+                df.iloc[i]['high'] > df.iloc[i+1]['high'] and
+                df.iloc[i]['high'] > df.iloc[i+2]['high']):
+                return i, df.iloc[i]
     return None, None
 
-def find_most_recent_swing_low(df, lookback=50):
+def find_most_recent_swing_low(df, lookback=100): # <-- Increased lookback to 100
     """
-    Find the most recent swing low within the lookback period.
-    A swing low is defined as a bar with lower low than both neighboring bars.
-    Returns the index and the bar data for the middle bar of the swing low.
+    Find the most recent 5-bar swing low within the lookback period.
+    A swing low is defined as a bar with a lower low than the two preceding
+    and two succeeding bars.
+    Returns the index and the bar data for the middle bar (bar 3) of the swing low.
     """
     for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-        if (df.iloc[i]['low'] < df.iloc[i-1]['low'] and 
-            df.iloc[i]['low'] < df.iloc[i+1]['low']):
-            return i, df.iloc[i]
+         if i >= 2 and i+2 < len(df):
+            if (df.iloc[i]['low'] < df.iloc[i-1]['low'] and
+                df.iloc[i]['low'] < df.iloc[i-2]['low'] and
+                df.iloc[i]['low'] < df.iloc[i+1]['low'] and
+                df.iloc[i]['low'] < df.iloc[i+2]['low']):
+                return i, df.iloc[i]
     return None, None
 
 def load_high_impact_news_csv(file_path):
@@ -1181,40 +1189,46 @@ class LivePipelineTrader:
         
         self.check_tp_sl_hits(current_price)
         
-        swing_high_idx, swing_high_bar = find_most_recent_swing_high(df_feat, lookback=50)
-        swing_low_idx, swing_low_bar = find_most_recent_swing_low(df_feat, lookback=50)
+        swing_high_idx, swing_high_bar = find_most_recent_swing_high(df_feat, lookback=75)
+        swing_low_idx, swing_low_bar = find_most_recent_swing_low(df_feat, lookback=75)
         
         current_close = last_row["close"]
-        
-        resistance_level = None
-        support_level = None
+
         sell_condition_met = False
         buy_condition_met = False
-        
+        resistance_trigger_level = None
+        support_trigger_level = None
+
         logger.info("==== TRADE ENTRY CONDITIONS ====")
-        
+
         if swing_high_bar is not None:
-            resistance_level = swing_high_bar['low']
-            sell_condition_met = current_close > resistance_level
+            resistance_trigger_level = swing_high_bar['high']
+            sell_condition_met = current_close > resistance_trigger_level
             time_diff = last_row["timestamp"] - swing_high_bar["timestamp"]
             minutes_ago = time_diff.total_seconds() / 60
-            
-            logger.info(f"SELL ENTRY CONDITION: Price must be ABOVE {resistance_level:.2f} (low of swing high from {int(minutes_ago)} mins ago)")
-            logger.info(f"Current price: {current_close:.2f} | Condition met: {sell_condition_met}")
+
+            logger.info(
+                f"SELL ENTRY CONDITION: Price must be ABOVE {resistance_trigger_level:.2f} (HIGH of 5-bar swing high from {int(minutes_ago)} mins ago)")
+            logger.info(
+                f"Current price: {current_close:.2f} | Condition met: {sell_condition_met}")
         else:
-            logger.info("SELL ENTRY CONDITION: No recent swing high found - cannot generate sell signals")
-        
+            logger.info(
+                "SELL ENTRY CONDITION: No recent 5-bar swing high found - cannot generate sell signals")
+
         if swing_low_bar is not None:
-            support_level = swing_low_bar['high']
-            buy_condition_met = current_close < support_level
+            support_trigger_level = swing_low_bar['low']
+            buy_condition_met = current_close < support_trigger_level
             time_diff = last_row["timestamp"] - swing_low_bar["timestamp"]
             minutes_ago = time_diff.total_seconds() / 60
-            
-            logger.info(f"BUY ENTRY CONDITION: Price must be BELOW {support_level:.2f} (high of swing low from {int(minutes_ago)} mins ago)")
+
+            logger.info(
+                f"BUY ENTRY CONDITION: Price must be BELOW {support_trigger_level:.2f} (LOW of 5-bar swing low from {int(minutes_ago)} mins ago)")
             logger.info(f"Current price: {current_close:.2f} | Condition met: {buy_condition_met}")
         else:
-            logger.info("BUY ENTRY CONDITION: No recent swing low found - cannot generate buy signals")
-        
+            logger.info(
+                "BUY ENTRY CONDITION: No recent 5-bar swing low found - cannot generate buy signals")
+
+
         logger.info("===============================")
         
         try:
@@ -1279,31 +1293,35 @@ class LivePipelineTrader:
             price_to_sma_50
         )
         logger.debug(f"Signal={signal}, w_pos={w_pos}, w_neg={w_neg}, tp={tp}, price_to_sma_50={price_to_sma_50}")
-        
+
         if signal != 0:
             try:
                 if signal == -1:
-                    if resistance_level is None:
-                        logger.info(f"⚠️ SELL signal invalidated: No recent swing high found")
+                    if resistance_trigger_level is None:
+                        logger.info(f"⚠️ SELL signal invalidated: No recent 5-bar swing high found")
                         signal = 0
                         tp = None
                     elif not sell_condition_met:
-                        logger.info(f"⚠️ SELL signal invalidated: Close {current_close:.2f} is not above swing high's low {resistance_level:.2f}")
+                        logger.info(
+                            f"⚠️ SELL signal invalidated: Close {current_close:.2f} is NOT ABOVE swing high's HIGH {resistance_trigger_level:.2f}")
                         signal = 0
                         tp = None
                     else:
-                        logger.info(f"✅ IDEAL SELL signal confirmed: Close {current_close:.2f} is above swing high's low {resistance_level:.2f}")
+                        logger.info(
+                            f"✅ IDEAL SELL signal confirmed: Close {current_close:.2f} is ABOVE swing high's HIGH {resistance_trigger_level:.2f}")
                 elif signal == 1:
-                    if support_level is None:
-                        logger.info(f"⚠️ BUY signal invalidated: No recent swing low found")
+                    if support_trigger_level is None:
+                        logger.info(f"⚠️ BUY signal invalidated: No recent 5-bar swing low found")
                         signal = 0
                         tp = None
                     elif not buy_condition_met:
-                        logger.info(f"⚠️ BUY signal invalidated: Close {current_close:.2f} is not below swing low's high {support_level:.2f}")
+                        logger.info(
+                            f"⚠️ BUY signal invalidated: Close {current_close:.2f} is NOT BELOW swing low's LOW {support_trigger_level:.2f}")
                         signal = 0
                         tp = None
                     else:
-                        logger.info(f"✅ IDEAL BUY signal confirmed: Close {current_close:.2f} is below swing low's high {support_level:.2f}")
+                        logger.info(
+                            f"✅ IDEAL BUY signal confirmed: Close {current_close:.2f} is BELOW swing low's LOW {support_trigger_level:.2f}")
             except Exception as e:
                 logger.warning(f"Error in swing high/low filter, continuing with original signal: {e}")
 

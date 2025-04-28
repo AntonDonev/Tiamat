@@ -173,6 +173,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
         public async Task<IActionResult> ViewAccount(ViewAccountViewModel model)
         {
@@ -283,6 +284,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult Settings(string? settingNameFilter)
         {
             TempData["SettingNameFilter"] = settingNameFilter ?? string.Empty;
@@ -364,6 +366,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddAccountSetting(AccountSettingAddViewModel vm)
         {
             if (!ModelState.IsValid)
@@ -397,6 +400,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult AccountCenter(string? PlatformFilter, string? StatusFilter, string? AccountSettingFilter)
         {
             TempData["PlatformFilter"] = PlatformFilter ?? string.Empty;
@@ -479,6 +483,7 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddAccount(Account account)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
