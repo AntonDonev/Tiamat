@@ -44,6 +44,21 @@ namespace Tiamat.Core.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task CreateAccountAsync(Guid UserId)
+        {
+            Account account = new Account();
+            account.UserId = UserId;
+            account.Id = Guid.NewGuid();
+            account.CreatedAt = DateTime.UtcNow;
+            account.Status = AccountStatus.Pending;
+            account.HighestCapital = account.InitialCapital;
+            account.LowestCapital = account.InitialCapital;
+            account.CurrentCapital = account.InitialCapital;
+            account.Affiliated_IP = null;
+            await _context.Accounts.AddAsync(account);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task UpdateAccountAsync(Account account)
         {
             _context.Accounts.Update(account);
