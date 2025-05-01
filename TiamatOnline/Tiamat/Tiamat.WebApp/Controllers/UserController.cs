@@ -99,7 +99,6 @@ namespace Tiamat.WebApp.Controllers
                 var readStatus = notification.NotificationUsers
                     .FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false;
                     
-                notification.IsReadByCurrentUser = readStatus;
             }
             
             if (!string.IsNullOrEmpty(startDate) || !string.IsNullOrEmpty(endDate))
@@ -152,7 +151,7 @@ namespace Tiamat.WebApp.Controllers
                     n.Description,
                     n.DateTime,
                     n.TotalReadCount,
-                    isRead = n.IsReadByCurrentUser
+                    isRead = n.NotificationUsers.FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false
                 }),
                 currentPage = page,
                 totalPages = totalPages,
