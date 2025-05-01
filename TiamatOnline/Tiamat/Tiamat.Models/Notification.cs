@@ -15,6 +15,9 @@ namespace Tiamat.Models
         public int TotalReadCount { get; set; }
         public DateTime DateTime { get; set; }
         public ICollection<NotificationUser> NotificationUsers { get; set; }
+        
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool IsReadByCurrentUser { get; set; }
 
         public Notification()
         {

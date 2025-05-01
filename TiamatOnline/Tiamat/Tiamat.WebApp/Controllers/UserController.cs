@@ -70,13 +70,13 @@ namespace Tiamat.WebApp.Controllers
 
 
 
-            var allNotifications = (await _notificationService.GetAllNotificationsAsync()).ToList();
-            int totalPages = (int)Math.Ceiling(allNotifications.Count / (double)pageSize);
+            var userNotifications = (await _notificationService.GetUserNotificationsAsync(userId)).ToList();
+            int totalPages = (int)Math.Ceiling(userNotifications.Count / (double)pageSize);
 
             var model = new DashboardViewModel
             {
                 Positions = positionsForChart,
-                Notifications = allNotifications,
+                Notifications = userNotifications,
                 CurrentPage = page,
                 TotalPages = totalPages
             };
@@ -85,11 +85,55 @@ namespace Tiamat.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetNotifications(int page = 1, int pageSize = 3)
+        public async Task<IActionResult> GetNotifications(int page = 1, int pageSize = 3, string startDate = null, string endDate = null)
         {
-            var allNotifications = (await _notificationService.GetAllNotificationsAsync())
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+            
+            var userNotifications = await _notificationService.GetUserNotificationsAsync(userId);
+            var allNotifications = userNotifications
                 .OrderByDescending(n => n.DateTime)
                 .ToList();
+                
+            foreach (var notification in allNotifications)
+            {
+                var readStatus = notification.NotificationUsers
+                    .FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false;
+                    
+                notification.IsReadByCurrentUser = readStatus;
+            }
+            
+            if (!string.IsNullOrEmpty(startDate) || !string.IsNullOrEmpty(endDate))
+            {
+                DateTime? parsedStartDate = null;
+                DateTime? parsedEndDate = null;
+                
+                if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var start))
+                {
+                    parsedStartDate = start.Date;
+                    Console.WriteLine($"Parsed start date: {parsedStartDate.Value}");
+                }
+                
+                if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var end))
+                {
+                    parsedEndDate = end.Date.AddDays(1).AddSeconds(-1);
+                    Console.WriteLine($"Parsed end date: {parsedEndDate.Value}");
+                }
+                
+                int beforeFilter = allNotifications.Count;
+                
+                if (parsedStartDate.HasValue)
+                {
+                    allNotifications = allNotifications.Where(n => n.DateTime >= parsedStartDate.Value).ToList();
+                    Console.WriteLine($"After start date filter: {allNotifications.Count} notifications (was {beforeFilter})");
+                }
+                
+                if (parsedEndDate.HasValue)
+                {
+                    int afterStartFilter = allNotifications.Count;
+                    allNotifications = allNotifications.Where(n => n.DateTime <= parsedEndDate.Value).ToList();
+                    Console.WriteLine($"After end date filter: {allNotifications.Count} notifications (was {afterStartFilter})");
+                }
+            }
 
             int totalNotifications = allNotifications.Count;
             int totalPages = (int)Math.Ceiling(totalNotifications / (double)pageSize);
@@ -107,10 +151,17 @@ namespace Tiamat.WebApp.Controllers
                     n.Title,
                     n.Description,
                     n.DateTime,
-                    n.TotalReadCount
+                    n.TotalReadCount,
+                    isRead = n.IsReadByCurrentUser
                 }),
                 currentPage = page,
-                totalPages = totalPages
+                totalPages = totalPages,
+                totalCount = totalNotifications,
+                filterInfo = new {
+                    appliedStartDate = startDate,
+                    appliedEndDate = endDate,
+                    filteredCount = allNotifications.Count
+                }
             });
         }
 

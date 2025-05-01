@@ -141,12 +141,17 @@ namespace Tiamat.Core.Services
 
         public async Task<IEnumerable<Notification>> GetUserNotificationsAsync(Guid userId)
         {
-            return await _context.NotificationUsers
+            Console.WriteLine($"Fetching notifications for user: {userId}");
+            
+            var userNotifications = await _context.NotificationUsers
                 .Include(nu => nu.Notification)
                 .Where(nu => nu.UserId == userId)
                 .OrderByDescending(nu => nu.Notification.DateTime)
                 .Select(nu => nu.Notification)
                 .ToListAsync();
+                
+            Console.WriteLine($"Found {userNotifications.Count} notifications for user {userId}");
+            return userNotifications;
         }
 
         public async Task<IEnumerable<Notification>> GetUserUnreadNotificationsAsync(Guid userId)

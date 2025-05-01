@@ -619,6 +619,9 @@
                         <button class="btn-primary ms-2" id="aiApplyDateFilter">Приложи</button>
                         <button class="btn-secondary ms-2" id="aiResetDateFilter">Нулирай</button>
                     </div>
+                    <div id="dateFilterStatus" class="mb-3" style="color: #4361ee; font-size: 0.9rem; display: none;">
+                        <i class="fas fa-info-circle"></i> <span id="dateFilterStatusText"></span>
+                    </div>
 
                     <div class="filter-buttons mb-3">
                         <button class="filter-btn active" data-notification-days="7">Последна Седмица</button>
@@ -876,20 +879,26 @@
             aiEndDateInput.valueAsDate = today;
 
             aiApplyDateFilterBtn.addEventListener('click', function() {
-                loadAiNotifications(1);
-
+                aiNotificationDayFilter = -1;
+                
                 document.querySelectorAll('[data-notification-days]').forEach(btn => {
                     btn.classList.remove('active');
                 });
-
-                aiNotificationDayFilter = -1;
+                
+                loadAiNotifications(1);
             });
 
             aiResetDateFilterBtn.addEventListener('click', function() {
                 aiStartDateInput.valueAsDate = defaultStartDate;
                 aiEndDateInput.valueAsDate = today;
-
-                document.querySelector('[data-notification-days="7"]').click();
+                
+                aiNotificationDayFilter = 7;
+                document.querySelectorAll('[data-notification-days]').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelector('[data-notification-days="7"]').classList.add('active');
+                
+                loadAiNotifications(1);
             });
         }
 
@@ -929,36 +938,14 @@
             }
 
             try {
-                var latestDate = null;
-                var validDatesCount = 0;
-
-                chartPositions.forEach(function(pos, index) {
-                    const openedAt = pos.openedAtIso || pos.OpenedAtIso;
-
-                    if (!openedAt) {
-                        return;
-                    }
-
-                    try {
-                        var date = new Date(openedAt);
-                        if (!isNaN(date.getTime())) {
-                            validDatesCount++;
-                            if (!latestDate || date > latestDate) {
-                                latestDate = date;
-                            }
-                        }
-                    } catch (err) {
-
-                    }
-                });
-
-                if (!latestDate) {
-                    return chartPositions;
-                }
-
-                var cutoffDate = new Date(latestDate);
+                // Use current date as reference point instead of latest position date
+                var today = new Date(); // Current date
+                var cutoffDate = new Date(today);
                 cutoffDate.setDate(cutoffDate.getDate() - days);
-
+                
+                console.log('Filter positions: Today is', today.toISOString().split('T')[0]);
+                console.log('Filter positions: Cutoff date is', cutoffDate.toISOString().split('T')[0]);
+                
                 var filteredPositions = chartPositions.filter(function(pos) {
                     const openedAt = pos.openedAtIso || pos.OpenedAtIso;
 
@@ -966,7 +953,7 @@
 
                     try {
                         var date = new Date(openedAt);
-                        return !isNaN(date.getTime()) && date >= cutoffDate;
+                        return !isNaN(date.getTime()) && date >= cutoffDate && date <= today;
                     } catch (err) {
                         return false;
                     }
@@ -974,6 +961,7 @@
 
                 return filteredPositions;
             } catch (error) {
+                console.error('Error filtering positions:', error);
                 return [];
             }
         }
@@ -1042,30 +1030,57 @@
                     return;
                 }
 
-                var dates = Object.keys(dateMap).sort();
-                if (dates.length > 1) {
-                    var startDate = new Date(dates[0]);
-                    var endDate = new Date(dates[dates.length - 1]);
-                    var continuousDates = [];
-                    var currentDate = new Date(startDate);
-
-                    while (currentDate <= endDate) {
-                        var dateStr = currentDate.toISOString().split('T')[0];
-                        continuousDates.push(dateStr);
-                        currentDate.setDate(currentDate.getDate() + 1);
-                    }
-
-                    continuousDates.forEach(date => {
-                        if (!dateMap[date]) {
-                            dateMap[date] = 0;
-                            buyMap[date] = 0;
-                            sellMap[date] = 0;
-                            accountMap[date] = {};
+                // Generate dates based on current date and filter days
+                var today = new Date();
+                var cutoffDate = new Date(today);
+                if (days > 0) {
+                    cutoffDate.setDate(cutoffDate.getDate() - days);
+                } else {
+                    // If showing all positions, use the earliest date from positions
+                    var earliestDate = null;
+                    chartPositions.forEach(function(pos) {
+                        const openedAt = pos.openedAtIso || pos.OpenedAtIso;
+                        if (openedAt) {
+                            try {
+                                var date = new Date(openedAt);
+                                if (!isNaN(date.getTime())) {
+                                    if (!earliestDate || date < earliestDate) {
+                                        earliestDate = date;
+                                    }
+                                }
+                            } catch (err) {}
                         }
                     });
-
-                    dates = continuousDates;
+                    
+                    if (earliestDate) {
+                        cutoffDate = earliestDate;
+                    }
                 }
+                
+                // Generate continuous date range from cutoff to today
+                var dates = [];
+                var currentDate = new Date(cutoffDate);
+                
+                // Normalize to start of day
+                currentDate.setHours(0, 0, 0, 0);
+                var endDate = new Date(today);
+                endDate.setHours(23, 59, 59, 999);
+                
+                while (currentDate <= endDate) {
+                    var dateStr = currentDate.toISOString().split('T')[0];
+                    dates.push(dateStr);
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                
+                // Ensure all dates in the range have entries in our maps
+                dates.forEach(date => {
+                    if (!dateMap[date]) {
+                        dateMap[date] = 0;
+                        buyMap[date] = 0;
+                        sellMap[date] = 0;
+                        accountMap[date] = {};
+                    }
+                });
 
                 var counts = [];
                 var buys = [];
@@ -1080,9 +1095,9 @@
                     accounts.push(Object.keys(accountMap[date] || {}).length);
 
                     const dateObj = new Date(date);
-                    const formattedDate = dateObj.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
+                    const formattedDate = dateObj.toLocaleDateString('bg-BG', {
+                        day: '2-digit',
+                        month: '2-digit',
                         year: 'numeric'
                     });
                     formattedDates.push(formattedDate);
@@ -1296,27 +1311,61 @@
 
         function loadAiNotifications(page) {
             let url = `/User/GetNotifications?page=${page}&pageSize=5`;
+            console.log(`Loading notifications with filter mode: ${aiNotificationDayFilter}`);
 
             if (aiNotificationDayFilter > 0) {
                 const today = new Date();
-                const pastDate = new Date();
+                const pastDate = new Date(today);
                 pastDate.setDate(today.getDate() - aiNotificationDayFilter);
-
-                url += `&startDate=${pastDate.toISOString().split('T')[0]}&endDate=${today.toISOString().split('T')[0]}`;
+                
+                const formattedStartDate = pastDate.toISOString().split('T')[0];
+                const formattedEndDate = today.toISOString().split('T')[0];
+                
+                url += `&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
+                console.log(`Using preset filter: ${aiNotificationDayFilter} days (${formattedStartDate} to ${formattedEndDate})`);
             } else if (aiNotificationDayFilter === -1) {
                 const startDate = aiStartDateInput.value;
                 const endDate = aiEndDateInput.value;
 
                 if (startDate && endDate) {
                     url += `&startDate=${startDate}&endDate=${endDate}`;
+                    console.log(`Using custom date filter: ${startDate} to ${endDate}`);
+                } else {
+                    console.warn('Custom date filter selected but dates are not properly set');
                 }
             }
 
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Received notifications data:', data);
+                    console.log(`Received ${data.notifications?.length || 0} notifications out of ${data.totalCount} total`);
+                    
                     renderAiNotifications(data.notifications);
                     renderAiPagination(data.currentPage, data.totalPages);
+                    
+                    const dateFilterStatus = document.getElementById('dateFilterStatus');
+                    const dateFilterStatusText = document.getElementById('dateFilterStatusText');
+                    
+                    if (data.filterInfo && (data.filterInfo.appliedStartDate || data.filterInfo.appliedEndDate)) {
+                        let filterMessage = '';
+                        
+                        if (aiNotificationDayFilter > 0) {
+                            filterMessage = `Показване на известия за последните ${aiNotificationDayFilter} дни`;
+                        } else if (aiNotificationDayFilter === -1) {
+                            const formattedStartDate = new Date(data.filterInfo.appliedStartDate).toLocaleDateString('bg-BG');
+                            const formattedEndDate = new Date(data.filterInfo.appliedEndDate).toLocaleDateString('bg-BG');
+                            filterMessage = `Филтрирани известия от ${formattedStartDate} до ${formattedEndDate}`;
+                        }
+                        
+                        filterMessage += ` (${data.filterInfo.filteredCount} известия)`;
+                        dateFilterStatusText.textContent = filterMessage;
+                        dateFilterStatus.style.display = 'block';
+                        
+                        console.log(`Applied filter: ${filterMessage}`);
+                    } else {
+                        dateFilterStatus.style.display = 'none';
+                    }
 
                     if (!data.notifications || data.notifications.length === 0) {
                         document.getElementById('aiEmptyNotifications').style.display = 'flex';
