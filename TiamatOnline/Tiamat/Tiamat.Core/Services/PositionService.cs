@@ -41,26 +41,26 @@ namespace Tiamat.Core.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task ClosePositionAsync(string Id, decimal profit, decimal currentCapital, DateTime ClosedAt, string FromIp)
+        public async Task ClosePositionAsync(string Id, decimal profit, decimal currentCapital, DateTime ClosedAt, string FromHwid)
         {
             var position = await _context.Positions
                 .Include(p => p.Account)
-                .FirstOrDefaultAsync(x => x.Id == Id && x.Account.Affiliated_IP == FromIp);
+                .FirstOrDefaultAsync(x => x.Id == Id && x.Account.Affiliated_HWID == FromHwid);
 
             if (position == null)
             {
-                _logger.LogError("No matching position found for ID {Id} with IP {FromIp}.", Id, FromIp);
+                _logger.LogError("No matching position found for ID {Id} with HWID {FromHwid}.", Id, FromHwid);
                 return;
             }
 
             position.Result = profit;
 
             var account = await _context.Accounts
-                .FirstOrDefaultAsync(x => x.Id == position.AccountId && x.Affiliated_IP == FromIp);
+                .FirstOrDefaultAsync(x => x.Id == position.AccountId && x.Affiliated_HWID == FromHwid);
 
             if (account == null)
             {
-                _logger.LogError("No matching account found for Position ID {PositionId} with IP {FromIp}.", position.AccountId, FromIp);
+                _logger.LogError("No matching account found for Position ID {PositionId} with HWID {FromHwid}.", position.AccountId, FromHwid);
             }
             else
             {

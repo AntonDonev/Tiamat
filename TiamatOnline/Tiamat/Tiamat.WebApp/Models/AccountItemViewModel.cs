@@ -17,7 +17,7 @@ namespace Tiamat.WebApp.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal InitialCapital { get; set; }
         [DataType(DataType.Currency)]
-        public decimal CurrentCapital { get; set; }
+        public decimal CurrentCapital { get; set; } 
         [DataType(DataType.Currency)]
         public decimal HighestCapital { get; set; }
         [DataType(DataType.Currency)]

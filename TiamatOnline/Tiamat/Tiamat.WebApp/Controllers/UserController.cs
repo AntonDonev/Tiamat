@@ -4,11 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Tiamat.Core;
 using Tiamat.Core.Services;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
-using Tiamat.Utility;
-using Tiamat.Utility.Services;
 using Tiamat.WebApp.Models;
 using static Tiamat.WebApp.Models.DashboardViewModel;
 
@@ -87,81 +86,42 @@ namespace Tiamat.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> GetNotifications(int page = 1, int pageSize = 3, string startDate = null, string endDate = null)
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-            
-            var userNotifications = await _notificationService.GetUserNotificationsAsync(userId);
-            var allNotifications = userNotifications
-                .OrderByDescending(n => n.DateTime)
-                .ToList();
-                
-            foreach (var notification in allNotifications)
+            try
             {
-                var readStatus = notification.NotificationUsers
-                    .FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false;
-                    
+                var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+                
+                var result = await _notificationService.GetFilteredAndPagedNotificationsAsync(userId, page, pageSize, startDate, endDate);
+                
+                var pagedNotifications = result.notifications;
+                var totalNotifications = result.totalCount;
+                var totalPages = result.totalPages;
+
+                return Json(new
+                {
+                    notifications = pagedNotifications.Select(n => new
+                    {
+                        n.Id,
+                        n.Title,
+                        n.Description,
+                        n.DateTime,
+                        n.TotalReadCount,
+                        isRead = n.NotificationUsers.FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false
+                    }),
+                    currentPage = page,
+                    totalPages = totalPages,
+                    totalCount = totalNotifications,
+                    filterInfo = new {
+                        appliedStartDate = startDate,
+                        appliedEndDate = endDate,
+                        filteredCount = pagedNotifications.Count()
+                    }
+                });
             }
-            
-            if (!string.IsNullOrEmpty(startDate) || !string.IsNullOrEmpty(endDate))
+            catch (Exception ex)
             {
-                DateTime? parsedStartDate = null;
-                DateTime? parsedEndDate = null;
-                
-                if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var start))
-                {
-                    parsedStartDate = start.Date;
-                    Console.WriteLine($"Parsed start date: {parsedStartDate.Value}");
-                }
-                
-                if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var end))
-                {
-                    parsedEndDate = end.Date.AddDays(1).AddSeconds(-1);
-                    Console.WriteLine($"Parsed end date: {parsedEndDate.Value}");
-                }
-                
-                int beforeFilter = allNotifications.Count;
-                
-                if (parsedStartDate.HasValue)
-                {
-                    allNotifications = allNotifications.Where(n => n.DateTime >= parsedStartDate.Value).ToList();
-                    Console.WriteLine($"After start date filter: {allNotifications.Count} notifications (was {beforeFilter})");
-                }
-                
-                if (parsedEndDate.HasValue)
-                {
-                    int afterStartFilter = allNotifications.Count;
-                    allNotifications = allNotifications.Where(n => n.DateTime <= parsedEndDate.Value).ToList();
-                    Console.WriteLine($"After end date filter: {allNotifications.Count} notifications (was {afterStartFilter})");
-                }
+                Console.WriteLine($"Error in GetNotifications: {ex.Message}");
+                return Json(new { error = "An error occurred while retrieving notifications." });
             }
-
-            int totalNotifications = allNotifications.Count;
-            int totalPages = (int)Math.Ceiling(totalNotifications / (double)pageSize);
-
-            var pagedNotifications = allNotifications
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            return Json(new
-            {
-                notifications = pagedNotifications.Select(n => new
-                {
-                    n.Id,
-                    n.Title,
-                    n.Description,
-                    n.DateTime,
-                    n.TotalReadCount,
-                    isRead = n.NotificationUsers.FirstOrDefault(nu => nu.UserId == userId)?.IsRead ?? false
-                }),
-                currentPage = page,
-                totalPages = totalPages,
-                totalCount = totalNotifications,
-                filterInfo = new {
-                    appliedStartDate = startDate,
-                    appliedEndDate = endDate,
-                    filteredCount = allNotifications.Count
-                }
-            });
         }
 
         [HttpGet]
@@ -181,6 +141,8 @@ namespace Tiamat.WebApp.Controllers
             {
                 filteredPositions = account.AccountPositions.ToList();
             }
+
+
 
             var viewModel = new ViewAccountViewModel
             {
@@ -224,7 +186,6 @@ namespace Tiamat.WebApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
         public async Task<IActionResult> ViewAccount(ViewAccountViewModel model)
         {
             if (!ModelState.IsValid)
@@ -255,15 +216,41 @@ namespace Tiamat.WebApp.Controllers
             var account = await _accountService.GetAccountByIdAsync(model.AccountId);
             if (account == null) return NotFound();
 
+
+            bool isPending = account.Status == AccountStatus.Pending;
+            
+
+            bool accountSettingChanged = account.AccountSettingsId != model.AccountSettingsId;
+            
+            if (accountSettingChanged && !_pythonSocketService.ConnectionState && !isPending)
+            {
+                TempData["AlertMessage"] = "ИИ е изключен. Промените в настройките на акаунта няма да бъдат запазени.";
+                TempData["AlertTitle"] = "ИИ е изключен";
+                TempData["AlertType"] = "error";
+                return RedirectToAction("ViewAccount", new { id = model.AccountId });
+            }
+
+
+
+
             account.AccountName = model.AccountName;
             if (model.AccountSettingsId.HasValue)
             {
                 account.AccountSettingsId = model.AccountSettingsId.Value;
-                AccountSetting accountSetting = await _accountSettingService.GetSettingByIdAsync(account.AccountSettingsId);
-                await _pythonSocketService.SendEditCommandAsync(account.Id.ToString(),accountSetting.MaxRiskPerTrade.ToString(),accountSetting.UntradablePeriodMinutes.ToString());
+                
+
+                if (!isPending) 
+                {
+                    AccountSetting accountSetting = await _accountSettingService.GetSettingByIdAsync(account.AccountSettingsId);
+                    await _pythonSocketService.SendEditCommandAsync(account.Id.ToString(),accountSetting.MaxRiskPerTrade.ToString(),accountSetting.UntradablePeriodMinutes.ToString());
+                }
             }
 
-            account.LastUpdatedAt = DateTime.UtcNow;
+
+            if (!isPending)
+            {
+                account.LastUpdatedAt = DateTime.UtcNow;
+            }
 
             await _accountService.UpdateAccountAsync(account);
             TempData["AlertMessage"] = "Акаунтът е успешно обновен!";
@@ -344,31 +331,37 @@ namespace Tiamat.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> FilteredSettings()
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-            var settingNameFilter = TempData["SettingNameFilter"] as string ?? "";
-
-            var userSettings = await _accountSettingService.GetSettingsForUserAsync(userId);
-
-            if (!string.IsNullOrEmpty(settingNameFilter))
+            try
             {
-                userSettings = userSettings
-                    .Where(s => s.SettingName.Contains(settingNameFilter, StringComparison.OrdinalIgnoreCase));
-            }
+                var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
+                var settingNameFilter = TempData["SettingNameFilter"] as string ?? "";
 
-            var vm = new AccountSettingCenterViewModel
-            {
-                SettingNameFilter = settingNameFilter,
-                Settings = userSettings.Select(s => new AccountSettingItemViewModel
+                var userSettings = await _accountSettingService.GetFilteredSettingsForUserAsync(userId, settingNameFilter);
+
+                var vm = new AccountSettingCenterViewModel
                 {
-                    AccountSettingId = s.AccountSettingId,
-                    SettingName = s.SettingName,
-                    MaxRiskPerTrade = s.MaxRiskPerTrade,
-                    UntradablePeriodMinutes = s.UntradablePeriodMinutes
-                }).ToList()
-            };
+                    SettingNameFilter = settingNameFilter,
+                    Settings = userSettings.Select(s => new AccountSettingItemViewModel
+                    {
+                        AccountSettingId = s.AccountSettingId,
+                        SettingName = s.SettingName,
+                        MaxRiskPerTrade = s.MaxRiskPerTrade,
+                        UntradablePeriodMinutes = s.UntradablePeriodMinutes
+                    }).ToList()
+                };
 
-            return View("Settings", vm);
+                return View("Settings", vm);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in FilteredSettings: {ex.Message}");
+                
+                TempData["AlertMessage"] = "Възникна грешка при филтрирането на настройките.";
+                TempData["AlertTitle"] = "Грешка";
+                TempData["AlertType"] = "error";
+                
+                return RedirectToAction(nameof(Settings));
+            }
         }
 
         [HttpPost]
@@ -463,63 +456,63 @@ namespace Tiamat.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> FilteredAccountCenter()
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-            var platformFilter = TempData["PlatformFilter"] as string ?? "";
-            var statusFilter = TempData["StatusFilter"] as string ?? "";
-            var accountSettingFilter = TempData["AccountSettingFilter"] as string ?? "";
-
-            var settingsForUser = await _accountSettingService.GetSettingsForUserAsync(userId);
-            var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
+            try
             {
-                AccountSettingId = s.AccountSettingId,
-                SettingName = s.SettingName
-            }).ToList();
+                var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier));
 
-            var accounts = (await _accountService.GetAllAccountsAsync()).Where(a => a.UserId == userId);
+                var platformFilter = TempData["PlatformFilter"] as string ?? "";
+                var statusFilter = TempData["StatusFilter"] as string ?? "";
+                var accountSettingFilter = TempData["AccountSettingFilter"] as string ?? "";
 
-            if (!string.IsNullOrEmpty(platformFilter))
-            {
-                accounts = accounts.Where(a => a.Platform == platformFilter);
+                TempData.Keep("PlatformFilter");
+                TempData.Keep("StatusFilter");
+                TempData.Keep("AccountSettingFilter");
+
+                var settingsForUser = await _accountSettingService.GetSettingsForUserAsync(userId);
+                var accountSettingsVm = settingsForUser.Select(s => new AccountSettingViewModel
+                {
+                    AccountSettingId = s.AccountSettingId,
+                    SettingName = s.SettingName
+                }).ToList();
+
+                var accounts = await _accountService.GetFilteredUserAccountsAsync(userId, platformFilter, statusFilter, accountSettingFilter);
+
+                var accountItemsVm = accounts.Select(a => new AccountItemViewModel
+                {
+                    AccountId = a.Id,
+                    AccountName = a.AccountName,
+                    InitialCapital = a.InitialCapital,
+                    CurrentCapital = a.CurrentCapital,
+                    HighestCapital = a.HighestCapital,
+                    LowestCapital = a.LowestCapital,
+                    Platform = a.Platform,
+                    Status = a.Status.ToString(),
+                    CreatedAt = a.CreatedAt,
+                    AccountSettingId = a.AccountSettingsId,
+                    AccountSettingName = a.AccountSetting?.SettingName
+                }).ToList();
+
+                var vm = new AccountCenterViewModel
+                {
+                    PlatformFilter = platformFilter,
+                    StatusFilter = statusFilter,
+                    AccountSettingFilter = accountSettingFilter,
+                    Accounts = accountItemsVm,
+                    AccountSettings = accountSettingsVm
+                };
+
+                return View("AccountCenter", vm);
             }
-
-            if (!string.IsNullOrEmpty(statusFilter))
+            catch (Exception ex)
             {
-                accounts = accounts.Where(a =>
-                    a.Status.ToString().Equals(statusFilter, StringComparison.OrdinalIgnoreCase));
+                Console.WriteLine($"Error in FilteredAccountCenter: {ex.Message}");
+                
+                TempData["AlertMessage"] = "Възникна грешка при филтрирането на акаунтите.";
+                TempData["AlertTitle"] = "Грешка";
+                TempData["AlertType"] = "error";
+                
+                return RedirectToAction(nameof(AccountCenter));
             }
-
-            if (!string.IsNullOrEmpty(accountSettingFilter) &&
-                Guid.TryParse(accountSettingFilter, out var settingId))
-            {
-                accounts = accounts.Where(a => a.AccountSettingsId == settingId);
-            }
-
-            var accountItemsVm = accounts.Select(a => new AccountItemViewModel
-            {
-                AccountId = a.Id,
-                AccountName = a.AccountName,
-                InitialCapital = a.InitialCapital,
-                CurrentCapital = a.CurrentCapital,
-                HighestCapital = a.HighestCapital,
-                LowestCapital = a.LowestCapital,
-                Platform = a.Platform,
-                Status = a.Status.ToString(),
-                CreatedAt = a.CreatedAt,
-                AccountSettingId = a.AccountSettingsId,
-                AccountSettingName = a.AccountSetting?.SettingName
-            }).ToList();
-
-            var vm = new AccountCenterViewModel
-            {
-                PlatformFilter = platformFilter,
-                StatusFilter = statusFilter,
-                AccountSettingFilter = accountSettingFilter,
-                Accounts = accountItemsVm,
-                AccountSettings = accountSettingsVm
-            };
-
-            return View("AccountCenter", vm);
         }
 
         [HttpGet]
@@ -575,7 +568,7 @@ namespace Tiamat.WebApp.Controllers
                 account.HighestCapital = account.InitialCapital;
                 account.LowestCapital = account.InitialCapital;
                 account.CurrentCapital = account.InitialCapital;
-                account.Affiliated_IP = null;
+                account.Affiliated_HWID = null;
 
                 await _accountService.CreateAccountAsync(account);
 

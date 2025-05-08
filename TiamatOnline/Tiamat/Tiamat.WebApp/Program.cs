@@ -5,8 +5,7 @@ using Tiamat.Core.Services.Interfaces;
 using Tiamat.Core.Services;
 using Tiamat.DataAccess;
 using Tiamat.Models;
-using Tiamat.Utility.Services;
-using Tiamat.Utility;
+using Tiamat.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,7 +48,13 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPythonApiService, PythonApiService>();
 builder.Services.AddScoped<CheckPythonConnectionAttribute>();
 
-builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAccountService>(provider => {
+    var dbContext = provider.GetRequiredService<TiamatDbContext>();
+    var notificationService = provider.GetRequiredService<INotificationService>();
+    var pythonApiService = provider.GetRequiredService<IPythonApiService>();
+    var logger = provider.GetRequiredService<ILogger<AccountService>>();
+    return new AccountService(dbContext, notificationService, pythonApiService, logger);
+});
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IAccountSettingService, AccountSettingService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();

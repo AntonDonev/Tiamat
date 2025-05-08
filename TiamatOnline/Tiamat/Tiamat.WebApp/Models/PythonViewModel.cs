@@ -23,8 +23,8 @@ namespace Tiamat.WebApp.Models
             [DataType(DataType.DateTime)]
             public DateTime OpenedAt { get; set; }
             [Required]
-            [MaxLength(45, ErrorMessage = "Свързаният IP не може да надвишава 45 символа")]
-            public string FromIp { get; set; }
+            [MaxLength(100, ErrorMessage = "Свързаният HWID не може да надвишава 100 символа")]
+            public string FromHwid { get; set; }
         }
 
         public class ClosedConfirmRequest
@@ -40,7 +40,7 @@ namespace Tiamat.WebApp.Models
             [Required]
             [DataType(DataType.DateTime)]
             public DateTime ClosedAt { get; set; }
-            public string FromIp { get; set; }
+            public string FromHwid { get; set; }
         }
 
         public class StartAccountRequest
@@ -48,8 +48,8 @@ namespace Tiamat.WebApp.Models
             [Required]
             public string AccountId { get; set; }
             [Required]
-            [MaxLength(45, ErrorMessage = "Свързаният IP не може да надвишава 45 символа")]
-            public string Ip { get; set; }
+            [MaxLength(100, ErrorMessage = "Свързаният HWID не може да надвишава 100 символа")]
+            public string Hwid { get; set; }
         }
     }
 }

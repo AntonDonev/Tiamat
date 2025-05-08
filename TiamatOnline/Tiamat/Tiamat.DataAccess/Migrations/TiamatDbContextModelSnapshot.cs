@@ -171,9 +171,9 @@ namespace Tiamat.DataAccess.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Affiliated_IP")
-                        .HasMaxLength(45)
-                        .HasColumnType("nvarchar(45)");
+                    b.Property<string>("Affiliated_HWID")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("BrokerLogin")
                         .IsRequired()

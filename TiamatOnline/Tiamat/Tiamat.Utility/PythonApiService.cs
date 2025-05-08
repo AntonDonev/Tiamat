@@ -17,7 +17,7 @@ namespace Tiamat.Utility
             Task<(bool IsSuccess, string ErrorMessage)> SendOpenCommandAsync(string id, string type, string symbol, string tp, string minutesUntilInvalid);
             Task<(bool IsSuccess, string ErrorMessage)> SendCloseCommandAsync(string id);
             Task<(bool IsSuccess, string ErrorMessage)> SendEditCommandAsync(string accountId, string maxRisk, string untradablePeriod);
-            Task<(bool IsSuccess, string ErrorMessage)> StartAccountAsync(string accountId, string ip);
+            Task<(bool IsSuccess, string ErrorMessage)> StartAccountAsync(string accountId, string hwid);
             Task<bool> IsPythonServiceHealthyAsync();
     }
 
@@ -41,7 +41,7 @@ namespace Tiamat.Utility
 
                 _httpClient = new HttpClient();
                 _httpClient.DefaultRequestHeaders.Add("x-api-key", _apiKey);
-                _httpClient.Timeout = TimeSpan.FromSeconds(10);
+                _httpClient.Timeout = TimeSpan.FromSeconds(30); // Increased timeout from 10 to 30 seconds
             }
 
             public bool IsConnected
@@ -228,16 +228,49 @@ namespace Tiamat.Utility
                 }
             }
 
-            public async Task<(bool IsSuccess, string ErrorMessage)> StartAccountAsync(string accountId, string ip)
+            public async Task<(bool IsSuccess, string ErrorMessage)> StartAccountAsync(string accountId, string hwid)
             {
                 try
                 {
-                    var message = $"START {accountId} {ip}";
+                    var message = $"START {accountId} {hwid}";
                     var content = new
                     {
                         command = "START",
                         accountId = accountId,
-                        ip = ip
+                        hwid = hwid
+                    };
+
+                    var jsonContent = new StringContent(JsonSerializer.Serialize(content), Encoding.UTF8, "application/json");
+                    var response = await _httpClient.PostAsync($"{_pythonApiBaseUrl}/command", jsonContent);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return (true, null);
+                    }
+                    else
+                    {
+                        var errorResponse = await response.Content.ReadAsStringAsync();
+
+                        await CheckConnectionAsync();
+                        return (false, $"Python API returned: {response.StatusCode} - {errorResponse}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await CheckConnectionAsync();
+                    return (false, $"Error: {ex.Message}");
+                }
+            }
+            
+            public async Task<(bool IsSuccess, string ErrorMessage)> UpdateAccountHwidAsync(string accountId, string newHwid)
+            {
+                try
+                {
+                    var content = new
+                    {
+                        command = "UPDATE_HWID",
+                        accountId = accountId,
+                        hwid = newHwid
                     };
 
                     var jsonContent = new StringContent(JsonSerializer.Serialize(content), Encoding.UTF8, "application/json");

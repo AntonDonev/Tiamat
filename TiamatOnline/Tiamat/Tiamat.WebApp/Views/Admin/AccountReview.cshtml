@@ -341,6 +341,19 @@
             transform: translateY(0);
         }
     }
+    
+    .text-danger {
+        color: #ff4d4d !important;
+        font-size: 0.9rem;
+    }
+
+    .validation-summary-errors {
+        display: block;
+    }
+
+    .validation-summary-valid {
+        display: none;
+    }
 
     @@media (max-width: 1200px) {
         .account-list-container {
@@ -466,6 +479,7 @@
             </div>
             <div class="modal-body">
                 <form id="denyNotifyForm" asp-action="DenyAccountWithNotification" asp-controller="Admin" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <input type="hidden" name="Id" id="denyAccountIdHidden" />
                     <input type="hidden" name="Title" value="Отказан кандидат" />
 
@@ -474,10 +488,12 @@
                             <i class="bi bi-exclamation-circle me-2"></i>Причина / Съобщение
                         </label>
                         <textarea class="form-control" id="notificationMessage" name="Message" rows="4" placeholder="Напишете причина за отказ..."></textarea>
+                        <span id="messageError" class="text-danger"></span>
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="useDefaultDenyMessage" name="useDefaultDenyMessage" />
+                        <input type="hidden" name="UseDefaultDenyMessage" value="false" />
+                        <input class="form-check-input" id="useDefaultDenyMessage" name="UseDefaultDenyMessage" type="checkbox" value="true" />
                         <label class="form-check-label" for="useDefaultDenyMessage">
                             Използвай стандартно съобщение за отказ
                         </label>
@@ -507,26 +523,31 @@
             </div>
             <div class="modal-body">
                 <form id="acceptNotifyForm" asp-action="ApproveAccount" asp-controller="Admin" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <input type="hidden" name="Id" id="acceptAccountIdHidden" />
                     <input type="hidden" name="Title" value="Приет кандидат" />
 
                     <div class="mb-3">
                         <label for="vpsName" class="form-label fw-bold"><i class="bi bi-hdd-network me-2"></i>Име на VPS</label>
                         <input type="text" class="form-control" id="vpsName" name="VPSName" placeholder="Въведете име на VPS..." />
+                        <span id="vpsNameError" class="text-danger"></span>
                     </div>
 
                     <div class="mb-3">
-                        <label for="affiliatedIP" class="form-label fw-bold"><i class="bi bi-ethernet me-2"></i>Свързан IP</label>
-                        <input type="text" class="form-control" id="affiliatedIP" name="AffiliatedIP" placeholder="Въведете свързан IP..." />
+                        <label for="affiliatedHWID" class="form-label fw-bold"><i class="bi bi-cpu me-2"></i>Свързан HWID</label>
+                        <input type="text" class="form-control" id="affiliatedHWID" name="AffiliatedHWID" placeholder="Въведете свързан HWID..." />
+                        <span id="affiliatedHWIDError" class="text-danger"></span>
                     </div>
 
                     <div class="mb-3">
                         <label for="acceptMessage" class="form-label fw-bold"><i class="bi bi-chat-text me-2"></i>Съобщение</label>
                         <textarea class="form-control" id="acceptMessage" name="Message" rows="4" placeholder="Напишете съобщение за одобрение..."></textarea>
+                        <span id="acceptMessageError" class="text-danger"></span>
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="useDefaultAcceptMessage" name="useDefaultMessage" />
+                        <input type="hidden" name="UseDefaultMessage" value="false" />
+                        <input class="form-check-input" id="useDefaultAcceptMessage" name="UseDefaultMessage" type="checkbox" value="true" />
                         <label class="form-check-label" for="useDefaultAcceptMessage">
                             Използвай стандартно съобщение за одобрение
                         </label>
@@ -703,10 +724,14 @@
 
                 document.getElementById('useDefaultDenyMessage').addEventListener('change', function () {
                     var messageArea = document.getElementById('notificationMessage');
+                    var messageError = document.getElementById('messageError');
+                    
                     if (this.checked) {
                         messageArea.value = "След внимателно разглеждане, съжаляваме да ви информираме, че вашето заявление е отхвърлено. Ценим вашия интерес и ако имате въпроси или бихте искали да кандидатствате отново в бъдеще, не се колебайте да се свържете с нашия екип за поддръжка.";
+                        messageError.textContent = '';
                     } else {
                         messageArea.value = "";
+                        messageError.textContent = '';
                     }
                 });
 
@@ -717,16 +742,20 @@
                     document.getElementById('acceptAccountIdHidden').value = accountId;
                     document.getElementById('acceptMessage').value = "";
                     document.getElementById('vpsName').value = "";
-                    document.getElementById('affiliatedIP').value = "";
+                    document.getElementById('affiliatedHWID').value = "";
                     document.getElementById('useDefaultAcceptMessage').checked = false;
                 });
 
                 document.getElementById('useDefaultAcceptMessage').addEventListener('change', function () {
                     var messageArea = document.getElementById('acceptMessage');
+                    var acceptMessageError = document.getElementById('acceptMessageError');
+                    
                     if (this.checked) {
                         messageArea.value = "Вашият акаунт е одобрен! Добре дошли на борда. Ценим вашето доверие и се надяваме да ви върви.";
+                        acceptMessageError.textContent = '';
                     } else {
                         messageArea.value = "";
+                        acceptMessageError.textContent = '';
                     }
                 });
 
@@ -738,8 +767,85 @@
                         row.style.transform = 'translateY(0)';
                     }, 100 * index);
                 });
+
+                function validateDenyForm() {
+                    const message = document.getElementById('notificationMessage').value;
+                    const useDefault = document.getElementById('useDefaultDenyMessage').checked;
+                    const messageError = document.getElementById('messageError');
+
+                    messageError.textContent = '';
+
+                    if (!useDefault && !message.trim()) {
+                        messageError.textContent = 'Съобщението е задължително';
+                        return false;
+                    }
+
+                    if (!useDefault && (message.length < 10 || message.length > 1000)) {
+                        messageError.textContent = 'Съобщението трябва да бъде между 10 и 1000 символа';
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                function validateAcceptForm() {
+                    const vpsName = document.getElementById('vpsName').value;
+                    const affiliatedHWID = document.getElementById('affiliatedHWID').value;
+                    const message = document.getElementById('acceptMessage').value;
+                    const useDefaultMessage = document.getElementById('useDefaultAcceptMessage').checked;
+                    const vpsNameError = document.getElementById('vpsNameError');
+                    const affiliatedHWIDError = document.getElementById('affiliatedHWIDError');
+                    const acceptMessageError = document.getElementById('acceptMessageError');
+                    
+                    vpsNameError.textContent = '';
+                    affiliatedHWIDError.textContent = '';
+                    acceptMessageError.textContent = '';
+                    
+                    let isValid = true;
+
+                    if (!vpsName.trim()) {
+                        vpsNameError.textContent = 'Име на VPS е задължително';
+                        isValid = false;
+                    } else if (vpsName.length < 2 || vpsName.length > 100) {
+                        vpsNameError.textContent = 'Името на VPS трябва да бъде между 2 и 100 символа';
+                        isValid = false;
+                    }
+
+                    if (!affiliatedHWID.trim()) {
+                        affiliatedHWIDError.textContent = 'Свързаният HWID е задължителен';
+                        isValid = false;
+                    } else if (affiliatedHWID.length < 3 || affiliatedHWID.length > 100) {
+                        affiliatedHWIDError.textContent = 'HWID трябва да бъде между 3 и 100 символа';
+                        isValid = false;
+                    }
+
+                    if (!useDefaultMessage && !message.trim()) {
+                        acceptMessageError.textContent = 'Съобщението е задължително';
+                        isValid = false;
+                    } else if (!useDefaultMessage && (message.length < 10 || message.length > 1000)) {
+                        acceptMessageError.textContent = 'Съобщението трябва да бъде между 10 и 1000 символа';
+                        isValid = false;
+                    }
+
+                    return isValid;
+                }
+
+                var acceptForm = document.getElementById('acceptNotifyForm');
+                acceptForm.addEventListener('submit', function(e) {
+                    if (!validateAcceptForm()) {
+                        e.preventDefault();
+                    }
+                });
+
+                var denyForm = document.getElementById('denyNotifyForm');
+                denyForm.addEventListener('submit', function(e) {
+                    if (!validateDenyForm()) {
+                        e.preventDefault();
+                    }
+                });
             });
         </script>
 
     @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
 }

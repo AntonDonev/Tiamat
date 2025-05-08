@@ -9,13 +9,16 @@ using System.Threading.Tasks;
 using Tiamat.Core.Services;
 using Tiamat.DataAccess;
 using Tiamat.Models;
+using Tiamat.Core;
 using Tiamat.Core.Services.Interfaces;
+using Microsoft.AspNetCore.Identity;
 
 namespace Tiamat.Tests
 {
     [TestFixture]
     public class ServiceTests
     {
+        private Mock<UserManager<User>> _mockUserManager;
         private TiamatDbContext _context;
         private Mock<ILogger<PositionService>> _mockLogger;
 
@@ -28,6 +31,7 @@ namespace Tiamat.Tests
 
             _context = new TiamatDbContext(options);
             _mockLogger = new Mock<ILogger<PositionService>>();
+            _mockUserManager = new Mock<UserManager<User>>(new Mock<IUserStore<User>>().Object, null, null, null, null, null, null, null, null);
         }
 
         [TearDown]
@@ -143,15 +147,15 @@ namespace Tiamat.Tests
         }
 
         [Test]
-        public async Task GetAccountByIpAsync_ExistingIp_ReturnsAccount()
+        public async Task GetAccountByHwidAsync_ExistingHwid_ReturnsAccount()
         {
             var service = new AccountService(_context);
-            var ip = "192.168.1.1";
+            var hwid = "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D";
             var account = new Account
             {
                 Id = Guid.NewGuid(),
                 AccountName = "Test Account",
-                Affiliated_IP = ip,
+                Affiliated_HWID = hwid,
                 Platform = "MT4",
                 BrokerLogin = "login1",
                 BrokerPassword = "pass1",
@@ -167,17 +171,17 @@ namespace Tiamat.Tests
             await _context.Accounts.AddAsync(account);
             await _context.SaveChangesAsync();
 
-            var result = await service.GetAccountByIpAsync(ip);
+            var result = await service.GetAccountByHwidAsync(hwid);
 
             Assert.That(result, Is.Not.Null);
-            Assert.That(result.Affiliated_IP, Is.EqualTo(ip));
+            Assert.That(result.Affiliated_HWID, Is.EqualTo(hwid));
         }
 
         [Test]
-        public async Task GetAccountByIpAsync_NonExistingIp_ReturnsNull()
+        public async Task GetAccountByHwidAsync_NonExistingHwid_ReturnsNull()
         {
             var service = new AccountService(_context);
-            var result = await service.GetAccountByIpAsync("192.168.1.123");
+            var result = await service.GetAccountByHwidAsync("49AD37E3-15D5-436C-BAA3-1A0177A4BF6D");
             Assert.That(result, Is.Null);
         }
 
@@ -308,14 +312,14 @@ namespace Tiamat.Tests
             await _context.Accounts.AddAsync(account);
             await _context.SaveChangesAsync();
 
-            await service.AccountReviewAsync(AccountStatus.Active, accountId, "VPS1", "admin@example.com", "192.168.1.1");
+            await service.AccountReviewAsync(AccountStatus.Active, accountId, "VPS1", "admin@example.com", "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D");
 
             var result = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Status, Is.EqualTo(AccountStatus.Active));
             Assert.That(result.VPSName, Is.EqualTo("VPS1"));
             Assert.That(result.AdminEmail, Is.EqualTo("admin@example.com"));
-            Assert.That(result.Affiliated_IP, Is.EqualTo("192.168.1.1"));
+            Assert.That(result.Affiliated_HWID, Is.EqualTo("49AD37E3-15D5-436C-BAA3-1A0177A4BF6D"));
         }
 
         [Test]
@@ -753,7 +757,7 @@ namespace Tiamat.Tests
         }
 
         [Test]
-        public async Task AllAccountsAsync_ReturnsActiveAccountsWithIps()
+        public async Task AllAccountsAsync_ReturnsActiveAccountsWithHwids()
         {
             var service = new AccountService(_context);
             var accounts = new List<Account>
@@ -762,7 +766,7 @@ namespace Tiamat.Tests
                 {
                     Id = Guid.NewGuid(),
                     Status = AccountStatus.Active,
-                    Affiliated_IP = "192.168.1.1",
+                    Affiliated_HWID = "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D",
                     AccountName = "Account 1",
                     Platform = "MT4",
                     BrokerLogin = "login1",
@@ -779,7 +783,7 @@ namespace Tiamat.Tests
                 {
                     Id = Guid.NewGuid(),
                     Status = AccountStatus.Active,
-                    Affiliated_IP = "192.168.1.2",
+                    Affiliated_HWID = "8B5D4F7A-C2E9-432B-9A1F-8E7C6D5B4A3F",
                     AccountName = "Account 2",
                     Platform = "MT5",
                     BrokerLogin = "login2",
@@ -796,7 +800,7 @@ namespace Tiamat.Tests
                 {
                     Id = Guid.NewGuid(),
                     Status = AccountStatus.Failed,
-                    Affiliated_IP = "192.168.1.3",
+                    Affiliated_HWID = "3A2B1C4D-5E6F-7G8H-9I0J-1K2L3M4N5O6P",
                     AccountName = "Account 3",
                     Platform = "MT4",
                     BrokerLogin = "login3",
@@ -1151,7 +1155,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetAllNotificationsAsync_ReturnsAllNotifications()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var user = new User { Id = Guid.NewGuid(), UserName = "TestUser" };
             await _context.Users.AddAsync(user);
 
@@ -1192,7 +1196,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetNotificationByIdAsync_ExistingId_ReturnsNotification()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var user = new User { Id = Guid.NewGuid(), UserName = "TestUser" };
             await _context.Users.AddAsync(user);
 
@@ -1226,7 +1230,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetNotificationByIdAsync_NonExistingId_ReturnsNull()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var result = await service.GetNotificationByIdAsync(Guid.NewGuid());
             Assert.That(result, Is.Null);
         }
@@ -1234,7 +1238,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task CreateNotificationAsync_WithUserIds_CreatesNotificationForUsers()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId1 = Guid.NewGuid();
             var userId2 = Guid.NewGuid();
 
@@ -1275,7 +1279,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task CreateNotificationAsync_WithNullUserIds_CreatesNotificationWithNoUsers()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var notification = new Notification
             {
@@ -1299,7 +1303,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task CreateNotificationAsync_WithEmptyUserIds_CreatesNotificationWithNoUsers()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var notification = new Notification
             {
@@ -1323,14 +1327,14 @@ namespace Tiamat.Tests
         [Test]
         public async Task CreateNotificationAsync_WithNullNotification_ThrowsArgumentNullException()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             Assert.ThrowsAsync<ArgumentNullException>(() => service.CreateNotificationAsync(null, new List<Guid>()));
         }
 
         [Test]
         public async Task CreateNotificationEveryoneAsync_CreatesNotificationForAllUsers()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var users = new List<User>
             {
                 new User { Id = Guid.NewGuid(), UserName = "User1" },
@@ -1366,14 +1370,14 @@ namespace Tiamat.Tests
         [Test]
         public async Task CreateNotificationEveryoneAsync_WithNullNotification_ThrowsArgumentNullException()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             Assert.ThrowsAsync<ArgumentNullException>(() => service.CreateNotificationEveryoneAsync(null));
         }
 
         [Test]
         public async Task UpdateNotificationAsync_ExistingNotification_UpdatesNotification()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var userId1 = Guid.NewGuid();
             var userId2 = Guid.NewGuid();
@@ -1430,7 +1434,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task UpdateNotificationAsync_NonExistingNotification_DoesNothing()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var notification = new Notification
             {
@@ -1449,14 +1453,14 @@ namespace Tiamat.Tests
         [Test]
         public async Task UpdateNotificationAsync_WithNullNotification_ThrowsArgumentNullException()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             Assert.ThrowsAsync<ArgumentNullException>(() => service.UpdateNotificationAsync(null, new List<Guid>()));
         }
 
         [Test]
         public async Task UpdateNotificationAsync_WithNullUserIds_ClearsUsers()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var userId = Guid.NewGuid();
 
@@ -1506,7 +1510,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task DeleteNotificationAsync_ExistingNotification_DeletesNotification()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notificationId = Guid.NewGuid();
             var userId = Guid.NewGuid();
 
@@ -1545,7 +1549,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task DeleteNotificationAsync_NonExistingNotification_DoesNothing()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var initialCount = await _context.Notifications.CountAsync();
 
             await service.DeleteNotificationAsync(Guid.NewGuid());
@@ -1557,7 +1561,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetUserNotificationsUserAsync_ReturnsNotificationUsersForUser()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
 
             await _context.Users.AddAsync(new User { Id = userId, UserName = "User1" });
@@ -1611,7 +1615,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetUserNotificationsUserAsync_WithNullUserId_ReturnsEmptyList()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var notifications = new List<Notification>
             {
                 new Notification {
@@ -1640,7 +1644,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetUserNotificationsAsync_ReturnsNotificationsForUser()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
 
             await _context.Users.AddAsync(new User { Id = userId, UserName = "User1" });
@@ -1694,7 +1698,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task GetUserUnreadNotificationsAsync_ReturnsUnreadNotificationsForUser()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
 
             await _context.Users.AddAsync(new User { Id = userId, UserName = "User1" });
@@ -1746,7 +1750,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task MarkNotificationAsReadAsync_ForUnreadNotification_MarksAsRead()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
             var notificationId = Guid.NewGuid();
 
@@ -1788,7 +1792,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task MarkNotificationAsReadAsync_ForAlreadyReadNotification_DoesNotUpdateReadCount()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
             var notificationId = Guid.NewGuid();
 
@@ -1825,7 +1829,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task MarkNotificationAsReadAsync_NonExistingNotification_DoesNothing()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var initialReadCounts = await _context.Notifications.Select(n => n.TotalReadCount).ToListAsync();
 
             await service.MarkNotificationAsReadAsync(Guid.NewGuid(), Guid.NewGuid());
@@ -1837,7 +1841,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task MarkAllNotificationsAsReadAsync_MarksAllUnreadNotificationsAsRead()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
 
             await _context.Users.AddAsync(new User { Id = userId, UserName = "User1" });
@@ -1912,7 +1916,7 @@ namespace Tiamat.Tests
         [Test]
         public async Task MarkAllNotificationsAsReadAsync_NoUnreadNotifications_DoesNotModifyTotalReadCount()
         {
-            var service = new NotificationService(_context);
+            var service = new NotificationService(_context, _mockUserManager.Object);
             var userId = Guid.NewGuid();
 
             await _context.Users.AddAsync(new User { Id = userId, UserName = "User1" });
@@ -2013,12 +2017,12 @@ namespace Tiamat.Tests
         {
             var service = new PositionService(_context, _mockLogger.Object);
             var accountId = Guid.NewGuid();
-            var ip = "192.168.1.1";
+            var hwid = "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D";
             var account = new Account
             {
                 Id = accountId,
                 AccountName = "Test Account",
-                Affiliated_IP = ip,
+                Affiliated_HWID = hwid,
                 CurrentCapital = 10000,
                 Platform = "MT4",
                 BrokerLogin = "login1",
@@ -2048,7 +2052,7 @@ namespace Tiamat.Tests
             await _context.SaveChangesAsync();
 
             var closedAt = DateTime.UtcNow;
-            await service.ClosePositionAsync("POS123", 500, 10500, closedAt, ip);
+            await service.ClosePositionAsync("POS123", 500, 10500, closedAt, hwid);
 
             var result = await _context.Positions.FirstOrDefaultAsync(p => p.Id == "POS123");
             var updatedAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
@@ -2060,7 +2064,7 @@ namespace Tiamat.Tests
         }
 
         [Test]
-        public async Task ClosePositionAsync_WithNonMatchingIp_LogsErrorAndDoesNothing()
+        public async Task ClosePositionAsync_WithNonMatchingHwid_LogsErrorAndDoesNothing()
         {
             var service = new PositionService(_context, _mockLogger.Object);
             var accountId = Guid.NewGuid();
@@ -2068,7 +2072,7 @@ namespace Tiamat.Tests
             {
                 Id = accountId,
                 AccountName = "Test Account",
-                Affiliated_IP = "192.168.1.1",
+                Affiliated_HWID = "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D",
                 CurrentCapital = 10000,
                 Platform = "MT4",
                 BrokerLogin = "login1",
@@ -2097,7 +2101,7 @@ namespace Tiamat.Tests
             await _context.Positions.AddAsync(position);
             await _context.SaveChangesAsync();
 
-            await service.ClosePositionAsync("POS123", 500, 10500, DateTime.UtcNow, "192.168.1.2");
+            await service.ClosePositionAsync("POS123", 500, 10500, DateTime.UtcNow, "8B5D4F7A-C2E9-432B-9A1F-8E7C6D5B4A3F");
 
             var result = await _context.Positions.FirstOrDefaultAsync(p => p.Id == "POS123");
             var updatedAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId);
@@ -2121,12 +2125,12 @@ namespace Tiamat.Tests
         {
             var service = new PositionService(_context, _mockLogger.Object);
             var accountId = Guid.NewGuid();
-            var ip = "192.168.1.1";
+            var hwid = "49AD37E3-15D5-436C-BAA3-1A0177A4BF6D";
 
             var account = new Account
             {
                 Id = accountId,
-                Affiliated_IP = ip,
+                Affiliated_HWID = hwid,
                 AccountName = "Test Account",
                 Platform = "MT4",
                 BrokerLogin = "login1",
@@ -2160,7 +2164,7 @@ namespace Tiamat.Tests
             await _context.SaveChangesAsync();
 
             var closedAt = DateTime.UtcNow;
-            await service.ClosePositionAsync("POS123", 500, 10500, closedAt, ip);
+            await service.ClosePositionAsync("POS123", 500, 10500, closedAt, hwid);
 
             var result = await _context.Positions.FirstOrDefaultAsync(p => p.Id == "POS123");
 
@@ -2197,7 +2201,7 @@ namespace Tiamat.Tests
                     BrokerPassword = "pass1",
                     BrokerServer = "server1",
                     CreatedAt = DateTime.UtcNow,
-                    CurrentCapital = 1000,
+                    CurrentCapital = 1000m,
                     HighestCapital = 1000,
                     InitialCapital = 1000,
                     LowestCapital = 1000,
@@ -2271,7 +2275,7 @@ namespace Tiamat.Tests
                 BrokerPassword = "pass1",
                 BrokerServer = "server1",
                 CreatedAt = DateTime.UtcNow,
-                CurrentCapital = 1000,
+                CurrentCapital = 1000m,
                 HighestCapital = 1000,
                 InitialCapital = 1000,
                 LowestCapital = 1000,

@@ -15,5 +15,6 @@ namespace Tiamat.Core.Services.Interfaces
         Task UpdateSettingAsync(AccountSetting setting);
         Task DeleteSettingAsync(Guid id);
         Task<IEnumerable<AccountSetting>> GetSettingsForUserAsync(Guid userId);
+        Task<IEnumerable<AccountSetting>> GetFilteredSettingsForUserAsync(Guid userId, string settingNameFilter);
     }
 }

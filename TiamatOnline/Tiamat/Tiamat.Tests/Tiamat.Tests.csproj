@@ -41,7 +41,6 @@
     <ProjectReference Include="..\Tiamat.Core\Tiamat.Core.csproj" />
     <ProjectReference Include="..\Tiamat.DataAccess\Tiamat.DataAccess.csproj" />
     <ProjectReference Include="..\Tiamat.Models\Tiamat.Models.csproj" />
-    <ProjectReference Include="..\Tiamat.Utility\Tiamat.Utility.csproj" />
     <ProjectReference Include="..\Tiamat.WebApp\Tiamat.WebApp.csproj" />
   </ItemGroup>
 

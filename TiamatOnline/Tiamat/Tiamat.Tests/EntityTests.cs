@@ -205,7 +205,7 @@ namespace Tiamat.Tests
             Assert.That(account.CreatedAt, Is.EqualTo(createdAt));
             Assert.That(account.AccountPositions, Is.Not.Null);
             Assert.That(account.AccountPositions, Is.Empty);
-            Assert.That(account.Affiliated_IP, Is.Null);
+            Assert.That(account.Affiliated_HWID, Is.Null);
         }
 
         [Test]
@@ -226,7 +226,7 @@ namespace Tiamat.Tests
             var brokerPassword = "password123";
             var brokerServer = "server123";
             var status = AccountStatus.Active;
-            var affiliatedIp = "192.168.1.1";
+            var affiliatedHwid = "9AD37E3-15D5-436C-BAA3-1A0177A4BF6D";
             var vpsName = "VPS1";
             var adminEmail = "admin@example.com";
             var createdAt = new DateTime(2023, 1, 1);
@@ -249,7 +249,7 @@ namespace Tiamat.Tests
                 BrokerPassword = brokerPassword,
                 BrokerServer = brokerServer,
                 Status = status,
-                Affiliated_IP = affiliatedIp,
+                Affiliated_HWID = affiliatedHwid,
                 VPSName = vpsName,
                 AdminEmail = adminEmail,
                 CreatedAt = createdAt,
@@ -271,7 +271,7 @@ namespace Tiamat.Tests
             Assert.That(account.BrokerPassword, Is.EqualTo(brokerPassword));
             Assert.That(account.BrokerServer, Is.EqualTo(brokerServer));
             Assert.That(account.Status, Is.EqualTo(status));
-            Assert.That(account.Affiliated_IP, Is.EqualTo(affiliatedIp));
+            Assert.That(account.Affiliated_HWID, Is.EqualTo(affiliatedHwid));
             Assert.That(account.VPSName, Is.EqualTo(vpsName));
             Assert.That(account.AdminEmail, Is.EqualTo(adminEmail));
             Assert.That(account.CreatedAt, Is.EqualTo(createdAt));

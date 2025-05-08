@@ -43,6 +43,19 @@ namespace Tiamat.Core.Services
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<AccountSetting>> GetFilteredSettingsForUserAsync(Guid userId, string settingNameFilter)
+        {
+            var userSettings = await GetSettingsForUserAsync(userId);
+            
+            if (!string.IsNullOrEmpty(settingNameFilter))
+            {
+                userSettings = userSettings
+                    .Where(s => s.SettingName.Contains(settingNameFilter, StringComparison.OrdinalIgnoreCase));
+            }
+            
+            return userSettings;
+        }
+
         public async Task CreateSettingAsync(AccountSetting setting)
         {
             await _context.AccountSettings.AddAsync(setting);

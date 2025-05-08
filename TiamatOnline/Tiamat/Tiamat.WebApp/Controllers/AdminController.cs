@@ -1,13 +1,16 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
+using Tiamat.Core.Helpers;
+using Tiamat.Core;
 using Tiamat.Core.Services.Interfaces;
 using Tiamat.Models;
-using Tiamat.Utility;
-using Tiamat.Utility.Services;
 using Tiamat.WebApp.Models;
+using Tiamat.WebApp.Models.Admin;
+using Tiamat.WebApp.Models.Account1;
 
 namespace Tiamat.WebApp.Controllers
 {
@@ -21,6 +24,7 @@ namespace Tiamat.WebApp.Controllers
         private readonly IAccountSettingService _accountSettingService;
         private readonly INotificationService _notificationService;
         private readonly IPythonApiService _pythonSocketService;
+        private readonly ILogger<AdminController> _logger;
 
         public AdminController(
             SignInManager<User> signInManager,
@@ -29,7 +33,8 @@ namespace Tiamat.WebApp.Controllers
             IAccountSettingService accountSettingService,
             INotificationService notificationService,
             RoleManager<IdentityRole<Guid>> roleManager,
-            IPythonApiService pythonSocketService)
+            IPythonApiService pythonSocketService,
+            ILogger<AdminController> logger)
         {
             _signInManager = signInManager;
             _userManager = userManager;
@@ -38,12 +43,14 @@ namespace Tiamat.WebApp.Controllers
             _notificationService = notificationService;
             _roleManager = roleManager;
             _pythonSocketService = pythonSocketService;
+            _logger = logger;
         }
 
         [HttpGet]
         public async Task<IActionResult> Notification()
         {
-            return View();
+            ModelState.Clear();
+            return View(new NotificationViewModel());
         }
 
         [HttpPost]
@@ -51,94 +58,41 @@ namespace Tiamat.WebApp.Controllers
         public async Task<IActionResult> Notification(NotificationViewModel model)
         {
             if (!ModelState.IsValid)
-                return RedirectToAction(nameof(Notification));
+                return View(model);
 
-            var notification = new Notification
+            var result = await _notificationService.SendNotificationToTargetsAsync(model.Title, model.Description, model.Targets);
+
+            if (result.IsSuccess)
             {
-                Title = model.Title,
-                Description = model.Description
-            };
-
-            var mentions = NotificationHelpers.ExtractMentions(model.Targets);
-
-            mentions = mentions.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-
-            if (mentions.Contains("everyone", StringComparer.OrdinalIgnoreCase))
-            {
-                await _notificationService.CreateNotificationEveryoneAsync(notification);
-                TempData["Success"] = "Нотификацията е изпратена до всички!";
-                return RedirectToAction(nameof(Notification));
-            }
-
-            var userIds = new List<Guid>();
-
-            foreach (var mention in mentions)
-            {
-                var byUserName = await _userManager.FindByNameAsync(mention);
-                if (byUserName != null)
-                {
-                    userIds.Add(byUserName.Id);
-                    continue;
-                }
-
-                var byEmail = await _userManager.FindByEmailAsync(mention);
-                if (byEmail != null)
-                {
-                    userIds.Add(byEmail.Id);
-                    continue;
-                }
-            }
-
-            userIds = userIds.Distinct().ToList();
-
-            if (userIds.Count > 0)
-            {
-                await _notificationService.CreateNotificationAsync(notification, userIds);
-                TempData["Success"] = $"Нотификацията е изпратена до {userIds.Count} човека!";
+                TempData["Success"] = result.Message;
             }
             else
             {
-                TempData["Error"] = "Няма валидни хора намерени.";
+                TempData["Error"] = result.Message;
             }
 
             return RedirectToAction(nameof(Notification));
         }
 
 
-        public static class NotificationHelpers
-        {
-            private static readonly Regex MentionRegex = new Regex(@"@([^\s,;]+)", RegexOptions.Compiled);
-            public static List<string> ExtractMentions(string text)
-            {
-                var results = new List<string>();
-                if (string.IsNullOrWhiteSpace(text))
-                    return results;
 
-                var matches = MentionRegex.Matches(text);
-                foreach (Match match in matches)
-                {
-                    if (match.Success && match.Groups.Count > 1)
-                    {
-                        results.Add(match.Groups[1].Value.ToLower().Trim());
-                    }
-                }
-                return results;
-            }
-        }
 
         [HttpGet]
         public async Task<IActionResult> UserCenter()
         {
-            return View();
+            return View(new UserCenterViewModel{
+                RegisterModel = new RegisterUserViewModel()
+            });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UserCenter(RegisterUserViewModel model)
+        public async Task<IActionResult> UserCenter(UserCenterViewModel viewModel)
         {
             if (ModelState.IsValid)
             {
-                string randomPassword = GenerateRandomPassword();
+                var model = viewModel.RegisterModel;
+                string randomPassword = PasswordGenerator.Generate(_userManager.Options.Password);
 
                 var newUser = new User
                 {
@@ -175,52 +129,7 @@ namespace Tiamat.WebApp.Controllers
                 }
             }
 
-            return View(model);
-        }
-
-        private string GenerateRandomPassword()
-        {
-            var options = _userManager.Options.Password;
-
-            int length = 12;
-
-            bool requireDigit = options.RequireDigit;
-            bool requireLowercase = options.RequireLowercase;
-            bool requireUppercase = options.RequireUppercase;
-            bool requireNonAlphanumeric = options.RequireNonAlphanumeric;
-
-            string digitChars = "0123456789";
-            string lowerChars = "abcdefghijklmnopqrstuvwxyz";
-            string upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            string nonAlpha = "!@#$%^&*()-_=+[]{}<>?";
-
-            var charPool = new List<char>();
-            if (requireLowercase) charPool.AddRange(lowerChars);
-            if (requireUppercase) charPool.AddRange(upperChars);
-            if (requireDigit) charPool.AddRange(digitChars);
-            if (requireNonAlphanumeric) charPool.AddRange(nonAlpha);
-
-            if (!charPool.Any())
-                charPool.AddRange(lowerChars + upperChars + digitChars + nonAlpha);
-
-            var rnd = new Random();
-            var passwordChars = new List<char>();
-
-            if (requireDigit)
-                passwordChars.Add(digitChars[rnd.Next(digitChars.Length)]);
-            if (requireLowercase)
-                passwordChars.Add(lowerChars[rnd.Next(lowerChars.Length)]);
-            if (requireUppercase)
-                passwordChars.Add(upperChars[rnd.Next(upperChars.Length)]);
-            if (requireNonAlphanumeric)
-                passwordChars.Add(nonAlpha[rnd.Next(nonAlpha.Length)]);
-
-            while (passwordChars.Count < length)
-            {
-                passwordChars.Add(charPool[rnd.Next(charPool.Count)]);
-            }
-
-            return new string(passwordChars.OrderBy(_ => rnd.Next()).ToArray());
+            return View(viewModel);
         }
 
         [HttpPost]
@@ -234,7 +143,6 @@ namespace Tiamat.WebApp.Controllers
             }
 
             var userId = Guid.Parse(userIdString);
-
             await _notificationService.MarkNotificationAsReadAsync(userId, notificationId);
 
             var newCount = (await _notificationService.GetUserUnreadNotificationsAsync(userId)).Count();
@@ -265,17 +173,13 @@ namespace Tiamat.WebApp.Controllers
         public async Task<IActionResult> AccountReview()
         {
             var allAccounts = await _accountService.GetAllAccountsAsync();
-            var pendingAccounts = allAccounts
-                                   .Where(a => a.Status == AccountStatus.Pending)
-                                   .ToList();
-
+            var pendingAccounts = allAccounts.Where(a => a.Status == AccountStatus.Pending).ToList();
             return View(pendingAccounts);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [ServiceFilter(typeof(CheckPythonConnectionAttribute))]
-        public async Task<IActionResult> ApproveAccount(Guid id, string title, string message, bool useDefaultMessage, string VPSName, string AffiliatedIP)
+        public async Task<IActionResult> ApproveAccount(ApproveAccountViewModel model)
         {
             if (!ModelState.IsValid)
             {
@@ -293,48 +197,135 @@ namespace Tiamat.WebApp.Controllers
 
                 return RedirectToAction(nameof(AccountReview));
             }
-            await _accountService.AccountReviewAsync(AccountStatus.Active, id, VPSName, User.FindFirstValue(ClaimTypes.Email), AffiliatedIP);
-
-            Notification notification = new Notification();
-            notification.Id = Guid.NewGuid();
-            notification.Title = title;
-            notification.Description = message;
-            notification.DateTime = DateTime.Now;
-
-            var account = await _accountService.GetAccountByIdAsync(id);
-            List<Guid> target = new List<Guid> { account.UserId };
-
-            await _notificationService.CreateNotificationAsync(notification, target);
             
-            await _pythonSocketService.StartAccountAsync(account.Id.ToString(),account.Affiliated_IP);
+            var result = await _accountService.ApproveAccountAndNotifyAsync(
+                model.Id, 
+                model.Title, 
+                model.VPSName, 
+                model.AffiliatedHWID, 
+                model.Message, 
+                User.FindFirstValue(ClaimTypes.Email));
+            
+            if (!result.IsSuccess)
+            {
+                TempData["AlertMessage"] = "Неуспешно приемане на акаунта: " + result.ErrorMessage;
+                TempData["AlertTitle"] = "Грешка при приемане";
+                TempData["AlertType"] = "error";
+            }
+            else if (!string.IsNullOrEmpty(result.ErrorMessage))
+            {
+                TempData["AlertMessage"] = result.ErrorMessage;
+                TempData["AlertTitle"] = "Предупреждение";
+                TempData["AlertType"] = "warning";
+            }
+            else
+            {
+                TempData["AlertMessage"] = "Успех";
+                TempData["AlertTitle"] = "Успех";
+                TempData["AlertType"] = "success";
+            }
 
             return RedirectToAction(nameof(AccountReview));
         }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DenyAccountWithNotification(Guid id, string title, string message, bool useDefaultDenyMessage)
+        
+        public async Task<IActionResult> DenyAccountWithNotification(DenyAccountViewModel model)
         {
 
-            await _accountService.AccountReviewAsync(AccountStatus.Active, id);
-
-            if (useDefaultDenyMessage)
+            if (!ModelState.IsValid)
             {
-                message = "After careful consideration, we regret to inform you...";
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                var combinedErrors = string.Join("; ", errors);
+
+                TempData["AlertMessage"] = "Неуспешно отказване на акаунта: " + combinedErrors;
+                TempData["AlertTitle"] = "Грешка при отказване";
+                TempData["AlertType"] = "error";
+
+                return RedirectToAction(nameof(AccountReview));
             }
 
-            Notification notification = new Notification();
-            notification.Id = Guid.NewGuid();
-            notification.Title = title;
-            notification.Description = message;
-            notification.DateTime = DateTime.Now;
-
-            var account = await _accountService.GetAccountByIdAsync(id);
-            List<Guid> target = new List<Guid> { account.UserId };
-
-            await _notificationService.CreateNotificationAsync(notification, target);
-
+            var result = await _accountService.DenyAccountAndNotifyAsync(
+                model.Id,
+                model.Title,
+                model.Message,
+                model.UseDefaultDenyMessage);
+                
+            if (!result.IsSuccess)
+            {
+                TempData["AlertMessage"] = "Неуспешно отказване на акаунта: " + result.ErrorMessage;
+                TempData["AlertTitle"] = "Грешка при отказване";
+                TempData["AlertType"] = "error";
+            }
+            else
+            {
+                TempData["AlertMessage"] = "Успех";
+                TempData["AlertTitle"] = "Успех";
+                TempData["AlertType"] = "success";
+            }
             return RedirectToAction(nameof(AccountReview));
+        }
+        
+        [HttpGet]
+        public async Task<IActionResult> UserAccounts(string searchTerm = null, Guid? userId = null)
+        {
+            var model = new AccountsViewModel
+            {
+                SearchTerm = searchTerm
+            };
+            
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                model.SearchResults = await _accountService.SearchUsersAsync(searchTerm);
+            }
+            
+            if (userId.HasValue)
+            {
+                model.SelectedUserId = userId;
+                var user = await _userManager.FindByIdAsync(userId.Value.ToString());
+                if (user != null)
+                {
+                    model.SelectedUserName = user.UserName;
+                    model.UserAccounts = await _accountService.GetAccountsByUserIdAsync(userId.Value);
+                }
+            }
+            
+            return View(model);
+        }
+        
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangeHwid(ChangeHwidViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["AlertMessage"] = "Неуспешна промяна на HWID: Невалидни данни.";
+                TempData["AlertTitle"] = "Грешка";
+                TempData["AlertType"] = "error";
+                
+                var account1 = await _accountService.GetAccountByIdAsync(model.AccountId);
+                return RedirectToAction(nameof(UserAccounts), new { userId = account1?.UserId });
+            }
+            
+            var result = await _accountService.ChangeAccountHwidAsync(model.AccountId, model.NewHwid);
+            
+            if (!result.IsSuccess)
+            {
+                TempData["AlertMessage"] = "Неуспешна промяна на HWID: " + result.ErrorMessage;
+                TempData["AlertTitle"] = "Грешка";
+                TempData["AlertType"] = "error";
+            }
+            else
+            {
+                TempData["AlertMessage"] = "HWID на акаунта е успешно променен.";
+                TempData["AlertTitle"] = "Успех";
+                TempData["AlertType"] = "success";
+            }
+            
+            var account = await _accountService.GetAccountByIdAsync(model.AccountId);
+            return RedirectToAction(nameof(UserAccounts), new { userId = account?.UserId });
         }
     }
 }

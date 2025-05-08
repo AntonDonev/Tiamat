@@ -856,6 +856,13 @@
                                         <span>Прегледи</span>
                                     </a>
                                 </li>
+                                <li>
+                                    <a class="dropdown-item user-menu-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Admin" && ViewContext.RouteData.Values["action"]?.ToString() == "UserAccounts" ? "active" : "")"
+                                       asp-controller="Admin" asp-action="UserAccounts">
+                                        <i class="bi bi-cpu"></i>
+                                        <span>Акаунти</span>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     }

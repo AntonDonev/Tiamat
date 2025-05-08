@@ -193,6 +193,31 @@
         background-color: rgba(255, 165, 2, 0.1);
         border-color: rgba(255, 165, 2, 0.3);
     }
+    
+    .read-only-field {
+        background-color: rgba(80, 80, 85, 0.9); /* Darker background for read-only fields */
+        color: #b0b0b0; /* Lighter text color to indicate disabled state */
+        cursor: not-allowed;
+        border: 1px dashed rgba(255, 255, 255, 0.2);
+    }
+    
+    .read-only-indicator {
+        display: block;
+        font-size: 0.5rem;
+        color: #b0b0b0;
+        margin-top: 0.1rem;
+        text-align: right;
+        opacity: 0.7;
+    }
+
+    .editable-indicator {
+        display: block;
+        font-size: 0.5rem;
+        color: #4361ee;
+        margin-top: 0.1rem;
+        text-align: right;
+        opacity: 0.7;
+    }
 
     .status-red {
         color: #ff4d4d;
@@ -221,6 +246,26 @@
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
+    }
+
+    small.text-success {
+        color: #2ed573 !important;
+        font-size: 0.8rem;
+        font-weight: 500;
+        display: block;
+        margin-top: 0.3rem;
+    }
+
+    small.text-danger {
+        color: #ff4d4d !important;
+        font-size: 0.8rem;
+        font-weight: 500;
+        display: block;
+        margin-top: 0.3rem;
+    }
+    
+    .position-relative {
+        position: relative;
     }
 
     .fade-in {
@@ -409,16 +454,20 @@
                             <tr>
                                 <td>
                                     <input asp-for="AccountName" class="form-control" />
+                                    <span class="editable-indicator">✓</span>
                                 </td>
                                 <td>
-                                    <input class="form-control" value="@Model.InitialCapital" disabled />
+                                    <input class="form-control read-only-field" value="@Model.InitialCapital" readonly />
+                                    <span class="read-only-indicator">🔒</span>
                                 </td>
                                 <td>
-                                    <input class="form-control @GetStatusClass(Model.Status.ToString())"
-                                           value="@Model.Status" disabled />
+                                    <input class="form-control read-only-field @GetStatusClass(Model.Status.ToString())"
+                                           value="@Model.Status" readonly />
+                                    <span class="read-only-indicator">🔒</span>
                                 </td>
                                 <td>
-                                    <input class="form-control" value="@Model.CreatedAt.ToShortDateString()" disabled />
+                                    <input class="form-control read-only-field" value="@Model.CreatedAt.ToShortDateString()" readonly />
+                                    <span class="read-only-indicator">🔒</span>
                                 </td>
                                 <td>
                                     <select asp-for="AccountSettingsId" class="form-control">
@@ -431,6 +480,7 @@
                                                 </option>
                                         }
                                     </select>
+                                    <span class="editable-indicator">✓</span>
                                 </td>
                                 <td>
                                     <button type="submit" class="btn-save-changes">

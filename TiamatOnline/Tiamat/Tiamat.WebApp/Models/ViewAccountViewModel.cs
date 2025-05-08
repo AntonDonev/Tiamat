@@ -61,13 +61,13 @@ namespace Tiamat.WebApp.Models
         
         [MaxLength(100, ErrorMessage = "Името на VPS не може да надвишава 100 символа")]
         [Display(Name = "Име на VPS")]
-        public string VPSName { get; set; }
+        public string? VPSName { get; set; }
         
         [MaxLength(100, ErrorMessage = "Имейлът на администратора не може да надвишава 100 символа")]
         [DataType(DataType.EmailAddress)]
         [EmailAddress(ErrorMessage = "Невалиден имейл адрес")]
         [Display(Name = "Имейл на администратора")]
-        public string AdminEmail { get; set; }
+        public string? AdminEmail { get; set; }
         
         [Required(ErrorMessage = "Датата на създаване е задължителна")]
         [DataType(DataType.DateTime)]
@@ -78,6 +78,8 @@ namespace Tiamat.WebApp.Models
         [Display(Name = "Последно обновяване")]
         public DateTime? LastUpdatedAt { get; set; }
 
+        // HWID removed from ViewModel as per requirements
+
         [DataType(DataType.Date)]
         [Display(Name = "От дата")]
         public DateTime? StartDate { get; set; }
@@ -87,10 +89,10 @@ namespace Tiamat.WebApp.Models
         public DateTime? EndDate { get; set; }
         
         [Display(Name = "Тип на сделката")]
-        public string TypeFilter { get; set; }
+        public string? TypeFilter { get; set; }
         
         [Display(Name = "Печалба/Загуба")]
-        public string ResultFilter { get; set; }
+        public string? ResultFilter { get; set; }
 
         public List<PositionViewModel> Positions { get; set; } = new List<PositionViewModel>();
     }

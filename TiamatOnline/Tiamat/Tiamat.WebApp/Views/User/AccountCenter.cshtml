@@ -453,11 +453,7 @@
                     @foreach (var setting in Model.AccountSettings)
                     {
                             <option value="@setting.AccountSettingId"
-                                    selected="@(Model.AccountSettingFilter?.Equals(
-                                        setting.AccountSettingId.ToString(),
-                                        StringComparison.OrdinalIgnoreCase) == true
-                                            ? "selected"
-                                            : null)">
+                                    selected="@(setting.AccountSettingId.ToString() == Model.AccountSettingFilter ? "selected" : null)">
                             @setting.SettingName
                             </option>
                     }

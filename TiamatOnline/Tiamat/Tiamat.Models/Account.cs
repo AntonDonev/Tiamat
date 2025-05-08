@@ -42,7 +42,7 @@ namespace Tiamat.Models
             BrokerServer = brokerServer;
             CreatedAt = createdAt;
             AccountPositions = new List<Position>();
-            Affiliated_IP = null;
+            Affiliated_HWID = null;
         }
 
         [Key]
@@ -67,6 +67,7 @@ namespace Tiamat.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal InitialCapital { get; set; }
         public decimal CurrentCapital { get; set; }
+
         public decimal HighestCapital { get; set; }
         public decimal LowestCapital { get; set; }
 
@@ -102,9 +103,9 @@ namespace Tiamat.Models
         [Display(Name = "Статус")]
         public AccountStatus Status { get; set; }
 
-        [MaxLength(45, ErrorMessage = "Свързаният IP не може да надвишава 45 символа")]
-        [Display(Name = "Свързан IP")]
-        public string? Affiliated_IP { get; set; }
+        [MaxLength(100, ErrorMessage = "Свързаният HWID не може да надвишава 100 символа")]
+        [Display(Name = "Свързан HWID")]
+        public string? Affiliated_HWID { get; set; }
 
         [MaxLength(100, ErrorMessage = "Името на VPS не може да надвишава 100 символа")]
         [Display(Name = "Име на VPS")]

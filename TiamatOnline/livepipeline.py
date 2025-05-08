@@ -15,1405 +15,1191 @@ import numpy as np
 import ta
 import joblib
 
+# --- Configuration ---
 HOST = "0.0.0.0"
-HTTP_PORT = 8020
-API_PORT = 8000
-
-SOCKET_PORT = 12345
+HTTP_PORT = 8020 # Port for receiving market data (e.g., from MT5)
+API_PORT = 8000  # Port for receiving commands (e.g., from ASP.NET)
+SOCKET_PORT = 12345 # Port for communicating with MQL4 DLLs
 
 ASPNET_API_URL = "https://tiamat.kzpmg.com/api/python"
-API_KEY = "soPibUUmQmYWfCs3IA9BwrjBEI8qQkSeq7wxQP00q7mkw4UBlSV5zekYr3iTqanmVkSUsaapIfc79wWteD6yoOpSUaryh2pUacToU2BaHjyz9tCDQprJMLAPXqb0Marc"
-ALLOWED_ASPNET_IPS = ["178.169.181.27", "127.0.0.1", "localhost"]
+API_KEY = "soPibUUmQmYWfCs3IA9BwrjBEI8qQkSeq7wxQP00q7mkw4UBlSV5zekYr3iTqanmVkSUsaapIfc79wWteD6yoOpSUaryh2pUacToU2BaHjyz9tCDQprJMLAPXqb0Marc" # API Key for authenticating requests *to* Python
 
-MODEL_BUNDLE_PATH = "model.pkl" 
+MODEL_BUNDLE_PATH = "model.pkl"
+HIGH_IMPACT_NEWS_PATH = "high_impact_news.csv"
+BUFFER_SIZE = 400 # Number of bars to keep for feature calculation
 
-HIGH_IMPACT_NEWS_PATH = "high_impact_news.csv"  
-
-BUFFER_SIZE = 400
-
+# --- Logging Setup ---
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
-def find_most_recent_swing_high(df, lookback=100): # <-- Increased lookback to 100
-    """
-    Find the most recent 5-bar swing high within the lookback period.
-    A swing high is defined as a bar with a higher high than the two preceding
-    and two succeeding bars.
-    Returns the index and the bar data for the middle bar (bar 3) of the swing high.
-    """
-    for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-         if i >= 2 and i+2 < len(df):
-            if (df.iloc[i]['high'] > df.iloc[i-1]['high'] and
-                df.iloc[i]['high'] > df.iloc[i-2]['high'] and
-                df.iloc[i]['high'] > df.iloc[i+1]['high'] and
-                df.iloc[i]['high'] > df.iloc[i+2]['high']):
-                return i, df.iloc[i]
-    return None, None
+# --- XOR Encryption Key and Function ---
+# IMPORTANT: This key MUST match the key in the C++ DLL's 'encryption.txt' file
+ENCRYPTION_KEY = b"MMgAZWQi788D8238TjqgPgMhx7XYX4CC" # Use bytes for the key.
 
-def find_most_recent_swing_low(df, lookback=100): # <-- Increased lookback to 100
-    """
-    Find the most recent 5-bar swing low within the lookback period.
-    A swing low is defined as a bar with a lower low than the two preceding
-    and two succeeding bars.
-    Returns the index and the bar data for the middle bar (bar 3) of the swing low.
-    """
-    for i in range(len(df) - 3, max(len(df) - lookback - 1, 2), -1):
-         if i >= 2 and i+2 < len(df):
-            if (df.iloc[i]['low'] < df.iloc[i-1]['low'] and
-                df.iloc[i]['low'] < df.iloc[i-2]['low'] and
-                df.iloc[i]['low'] < df.iloc[i+1]['low'] and
-                df.iloc[i]['low'] < df.iloc[i+2]['low']):
-                return i, df.iloc[i]
-    return None, None
+def xor_cipher(data_bytes, key_bytes):
+    """ Simple XOR cipher for bytes. """
+    if not key_bytes:
+        logger.warning("XOR cipher called with an empty key. Data will not be encrypted/decrypted.")
+        return data_bytes
+    if not data_bytes:
+        return data_bytes
+    key_len = len(key_bytes)
+    if key_len == 0:
+        logger.warning("XOR cipher key_len is 0. Data will not be encrypted/decrypted.")
+        return data_bytes
+    return bytes([data_bytes[i] ^ key_bytes[i % key_len] for i in range(len(data_bytes))])
+# --- End of XOR Encryption ---
 
+# --- Helper Functions ---
 def load_high_impact_news_csv(file_path):
+    """ Loads and parses high-impact news events from a CSV file. """
     try:
         if not os.path.exists(file_path):
             logger.warning(f"News file not found: {file_path}. Continuing without news data.")
             return []
-            
         df = pd.read_csv(file_path, delimiter=',', header=None)
-        df.columns = [
-            'date','time','currency','impact','news','v1','v2','v3','v4','extra'
-        ]
-        df['timestamp'] = pd.to_datetime(
-            df['date'] + ' ' + df['time'],
-            format='%Y/%m/%d %H:%M',
-            utc=True
-        )
-        df = df[df['impact'] == 'H']
+        df.columns = ['date','time','currency','impact','news','v1','v2','v3','v4','extra']
+        # Ensure correct parsing, assuming UTC times in the file
+        df['timestamp'] = pd.to_datetime(df['date'] + ' ' + df['time'], format='%Y/%m/%d %H:%M', utc=True)
+        df = df[df['impact'] == 'H'] # Filter for high impact only
         news_events = df['timestamp'].sort_values().tolist()
         logger.info(f"Loaded {len(news_events)} high-impact news events from CSV (UTC).")
         return news_events
     except Exception as e:
-        logger.error(f"Error loading news CSV: {e}")
+        logger.error(f"Error loading news CSV '{file_path}': {e}", exc_info=True)
         return []
 
 def calc_until_invalid(
-    bar_ts,
-    news_events=None,
-    pre_news_buffer=60,
-    post_news_buffer=60,
-    maintenance_start=22,
-    maintenance_end=0,
+    bar_ts, news_events=None, pre_news_buffer=60, post_news_buffer=60,
+    maintenance_start=22, maintenance_end=0,
 ):
-    if news_events is None:
-        news_events = []
-    
-    maint_start = bar_ts.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
-    maint_end = bar_ts.replace(hour=maintenance_end, minute=0, second=0, microsecond=0)
-    if maint_end <= maint_start:
-        maint_end += timedelta(days=1)
-    
-    invalid_windows = [(maint_start, maint_end)]
-    logger.debug(f"Maintenance window: {maint_start} -> {maint_end}")
-    
+    """ Calculates minutes until the next invalid trading period (news or maintenance). """
+    if news_events is None: news_events = []
+    # Ensure bar_ts is timezone-aware (UTC expected)
+    if bar_ts.tzinfo is None:
+        logger.warning(f"calc_until_invalid received naive timestamp: {bar_ts}. Assuming UTC.")
+        bar_ts = bar_ts.replace(tzinfo=timezone.utc)
+    else:
+        bar_ts = bar_ts.astimezone(timezone.utc) # Convert to UTC if it's aware but different
+
+    # Calculate current maintenance window
+    maint_start_dt = bar_ts.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
+    maint_end_dt = bar_ts.replace(hour=maintenance_end, minute=0, second=0, microsecond=0)
+    if maint_end_dt <= maint_start_dt: # Handle overnight maintenance (e.g., 22:00 to 00:00)
+        maint_end_dt += timedelta(days=1)
+
+    invalid_windows = [(maint_start_dt, maint_end_dt)]
+    # Add news event windows
     for ne in news_events:
-        start_ne = ne - timedelta(minutes=pre_news_buffer)
-        end_ne   = ne + timedelta(minutes=post_news_buffer)
-        invalid_windows.append((start_ne, end_ne))
-    
+        # Ensure news event times are timezone-aware UTC
+        if ne.tzinfo is None: ne = ne.replace(tzinfo=timezone.utc)
+        else: ne = ne.astimezone(timezone.utc)
+        invalid_windows.append((ne - timedelta(minutes=pre_news_buffer), ne + timedelta(minutes=post_news_buffer)))
+
     invalid_windows.sort(key=lambda x: x[0])
+
+    # Merge overlapping/contiguous windows
     merged = []
-    for win in invalid_windows:
-        if not merged:
-            merged.append(win)
+    if not invalid_windows: # Should not happen if maintenance is always added
+        # Fallback: calculate until next theoretical maintenance start
+        next_maint = bar_ts.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
+        if bar_ts >= next_maint: next_maint += timedelta(days=1)
+        return max(0, int((next_maint - bar_ts).total_seconds() // 60))
+
+    for win_start, win_end in invalid_windows:
+        if not merged or win_start > merged[-1][1]:
+            merged.append([win_start, win_end])
         else:
-            last_start, last_end = merged[-1]
-            curr_start, curr_end = win
-            if curr_start <= last_end:
-                merged[-1] = (last_start, max(last_end, curr_end))
-            else:
-                merged.append(win)
-    
+            merged[-1][1] = max(merged[-1][1], win_end)
+
+    # Check current time against merged windows
     for wstart, wend in merged:
-        if wstart <= bar_ts < wend:
-            logger.debug("Current time is INSIDE an invalid window")
-            return 0
-        if bar_ts < wstart:
-            delta = wstart - bar_ts
-            minutes_until = max(0, int(delta.total_seconds() // 60))
-            logger.debug(f"Minutes until invalid window: {minutes_until}")
-            return minutes_until
-    
-    next_day = bar_ts + timedelta(days=1)
-    next_maint_start = next_day.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
-    delta = next_maint_start - bar_ts
-    minutes_until = max(0, int(delta.total_seconds() // 60))
-    logger.debug(f"Minutes until tomorrow's maintenance: {minutes_until}")
-    return minutes_until
+        if wstart <= bar_ts < wend: return 0 # Inside an invalid window
+        if bar_ts < wstart: # Before the next window
+            return max(0, int((wstart - bar_ts).total_seconds() // 60))
+
+    # If past all currently relevant windows, calculate until next maintenance cycle
+    next_maint_calc = maint_start_dt
+    if bar_ts >= maint_end_dt: # If already past today's maintenance end
+        next_maint_calc += timedelta(days=1)
+    elif bar_ts >= maint_start_dt: # If inside maintenance (should have returned 0) or between start and end if window spans midnight
+        # Find the *next* start, which might be tomorrow
+        if bar_ts >= maint_start_dt.replace(hour=maintenance_start, minute=0, second=0, microsecond=0):
+            next_maint_calc += timedelta(days=1)
+
+    # Ensure calculation is for the future start time
+    while next_maint_calc <= bar_ts:
+        next_maint_calc += timedelta(days=1) # Should calculate time until the *next* window starts
+
+    return max(0, int((next_maint_calc - bar_ts).total_seconds() // 60))
+
 
 def engineer_features(df):
-    """Engineer features exactly matching the training script to ensure model compatibility."""
+    """ Engineers technical features from OHLCV data. """
     df = df.copy()
     df.sort_values('timestamp', inplace=True)
-    
     df['hour'] = df['timestamp'].dt.hour
-    
     df['asian_session'] = ((df['hour'] >= 0) & (df['hour'] < 8)).astype(int)
     df['london_session'] = ((df['hour'] >= 8) & (df['hour'] < 16)).astype(int)
-    
-    df['ema_9'] = df['close'].ewm(span=9, adjust=False).mean()
-    df['ema_21'] = df['close'].ewm(span=21, adjust=False).mean()
-    
-    df['sma_50'] = df['close'].rolling(window=50).mean()
-    df['sma_200'] = df['close'].rolling(window=200).mean()
-    
-    df['ma_cross_9_21'] = df['ema_9'] / df['ema_21'] - 1
-    df['ma_cross_50_200'] = df['sma_50'] / df['sma_200'] - 1
-    
-    df['price_to_ema_9'] = df['close'] / df['ema_9'] - 1
-    df['price_to_ema_21'] = df['close'] / df['ema_21'] - 1
-    df['price_to_sma_50'] = df['close'] / df['sma_50'] - 1
-    df['price_to_sma_200'] = df['close'] / df['sma_200'] - 1
-    
+    df['ema_9'] = ta.trend.ema_indicator(df['close'], window=9, fillna=False)
+    df['ema_21'] = ta.trend.ema_indicator(df['close'], window=21, fillna=False)
+    df['sma_50'] = ta.trend.sma_indicator(df['close'], window=50, fillna=False)
+    df['sma_200'] = ta.trend.sma_indicator(df['close'], window=200, fillna=False)
+    df['ma_cross_9_21'] = df['ema_9'] / (df['ema_21'] + 1e-9) - 1
+    df['ma_cross_50_200'] = df['sma_50'] / (df['sma_200'] + 1e-9) - 1
+    df['price_to_ema_9'] = df['close'] / (df['ema_9'] + 1e-9) - 1
+    df['price_to_ema_21'] = df['close'] / (df['ema_21'] + 1e-9) - 1
+    df['price_to_sma_50'] = df['close'] / (df['sma_50'] + 1e-9) - 1
+    df['price_to_sma_200'] = df['close'] / (df['sma_200'] + 1e-9) - 1
     df['ema_9_slope'] = df['ema_9'].pct_change(5)
     df['ema_21_slope'] = df['ema_21'].pct_change(5)
     df['sma_50_slope'] = df['sma_50'].pct_change(10)
     df['sma_200_slope'] = df['sma_200'].pct_change(20)
-    
     df['trend_direction'] = np.sign(df['close'] - df['sma_50'])
-    df['trend_direction_change'] = df['trend_direction'].diff().ne(0).astype(int)
-    df['trend_streak'] = df.groupby(df['trend_direction_change'].cumsum())['trend_direction_change'].cumcount()
-    df['trend_streak'] = np.minimum(df['trend_streak'], 20)
-    
-    macd = ta.trend.MACD(df['close'], window_fast=12, window_slow=26, window_sign=9)
+    df['trend_direction_change'] = df['trend_direction'].diff().fillna(0).ne(0).astype(int)
+    df['trend_streak'] = df.groupby(df['trend_direction_change'].cumsum()).cumcount()
+    df['trend_streak'] = np.minimum(df['trend_streak'], 20) # Cap streak
+    macd = ta.trend.MACD(df['close'], window_fast=12, window_slow=26, window_sign=9, fillna=False)
     df['macd_line'] = macd.macd()
     df['macd_signal'] = macd.macd_signal()
     df['macd_histogram'] = macd.macd_diff()
-    
-    df['macd_line_pct'] = df['macd_line'] / df['close'] * 100
-    df['macd_signal_pct'] = df['macd_signal'] / df['close'] * 100
-    df['macd_histogram_pct'] = df['macd_histogram'] / df['close'] * 100
-    
-    psar = ta.trend.PSARIndicator(df['high'], df['low'], df['close'], step=0.02, max_step=0.2)
+    df['macd_line_pct'] = df['macd_line'] / (df['close'] + 1e-9) * 100
+    df['macd_signal_pct'] = df['macd_signal'] / (df['close'] + 1e-9) * 100
+    df['macd_histogram_pct'] = df['macd_histogram'] / (df['close'] + 1e-9) * 100
+    psar = ta.trend.PSARIndicator(df['high'], df['low'], df['close'], step=0.02, max_step=0.2, fillna=False)
     df['psar'] = psar.psar()
-    
-    df['psar_distance'] = (df['close'] - df['psar']) / df['close']
-    
-    ichimoku = ta.trend.IchimokuIndicator(df['high'], df['low'], window1=9, window2=26, window3=52)
+    df['psar_distance'] = (df['close'] - df['psar']) / (df['close'] + 1e-9)
+    ichimoku = ta.trend.IchimokuIndicator(df['high'], df['low'], window1=9, window2=26, window3=52, fillna=False)
     df['ichimoku_a'] = ichimoku.ichimoku_a()
     df['ichimoku_b'] = ichimoku.ichimoku_b()
-    df['ichimoku_base'] = ichimoku.ichimoku_base_line()
-    
-    df['price_to_kijun'] = df['close'] / df['ichimoku_base'] - 1
-    df['tenkan_kijun_cross'] = ichimoku.ichimoku_conversion_line() / df['ichimoku_base'] - 1
-    
-    df['cloud_thickness'] = (df['ichimoku_a'] - df['ichimoku_b']) / df['close']
-    
-    df['rsi_7'] = ta.momentum.RSIIndicator(df['close'], window=7).rsi()
-    df['rsi_14'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
-    
-    df['roc_5'] = ta.momentum.ROCIndicator(df['close'], window=5).roc()
-    df['roc_10'] = ta.momentum.ROCIndicator(df['close'], window=10).roc()
-    df['roc_20'] = ta.momentum.ROCIndicator(df['close'], window=20).roc()
-    
-    rsi_scaled = 2 * (df['rsi_14'] - 50) / 100
-    df['fisher_rsi_14'] = 0.5 * np.log((1 + rsi_scaled) / (1 - rsi_scaled + 1e-9))
-    
-    boll = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
+    df['ichimoku_base'] = ichimoku.ichimoku_base_line() # Kijun Sen
+    df['ichimoku_conv'] = ichimoku.ichimoku_conversion_line() # Tenkan Sen
+    df['price_to_kijun'] = df['close'] / (df['ichimoku_base'] + 1e-9) - 1
+    df['tenkan_kijun_cross'] = df['ichimoku_conv'] / (df['ichimoku_base'] + 1e-9) - 1
+    df['cloud_thickness'] = (df['ichimoku_a'] - df['ichimoku_b']) / (df['close'] + 1e-9)
+    df['rsi_7'] = ta.momentum.rsi(df['close'], window=7, fillna=False)
+    df['rsi_14'] = ta.momentum.rsi(df['close'], window=14, fillna=False)
+    df['roc_5'] = ta.momentum.roc(df['close'], window=5, fillna=False)
+    df['roc_10'] = ta.momentum.roc(df['close'], window=10, fillna=False)
+    df['roc_20'] = ta.momentum.roc(df['close'], window=20, fillna=False)
+    rsi_scaled = 2 * (df['rsi_14'].fillna(50) - 50) / 100 # Scale RSI to [-1, 1], fill NaN with neutral 50
+    df['fisher_rsi_14'] = 0.5 * np.log((1 + rsi_scaled + 1e-9) / (1 - rsi_scaled + 1e-9))
+    boll = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2, fillna=False)
     df['boll_pct_b'] = boll.bollinger_pband()
     df['boll_width'] = boll.bollinger_wband()
-    
-    atr_raw = ta.volatility.AverageTrueRange(
-        df['high'], df['low'], df['close'], window=14
-    ).average_true_range()
-    df['atr_pct'] = atr_raw / df['close'] * 100
-    
-    adx5 = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=5)
+    atr = ta.volatility.AverageTrueRange(df['high'], df['low'], df['close'], window=14, fillna=False)
+    df['atr_pct'] = atr.average_true_range() / (df['close'] + 1e-9) * 100
+    adx5 = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=5, fillna=False)
     df['adx5'] = adx5.adx()
-    
-    adx = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=14)
+    adx = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=14, fillna=False)
     df['adx'] = adx.adx()
     df['adx_pos'] = adx.adx_pos()
     df['adx_neg'] = adx.adx_neg()
-    
-    df['adx_trend_strength'] = df['adx'] * np.sign(df['adx_pos'] - df['adx_neg'])
-    df['di_spread'] = (df['adx_pos'] - df['adx_neg']) / (df['adx_pos'] + df['adx_neg'] + 1e-9)
-    
-    donch = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=20)
+    df['adx_trend_strength'] = df['adx'].fillna(0) * np.sign(df['adx_pos'].fillna(0) - df['adx_neg'].fillna(0))
+    df['di_spread'] = (df['adx_pos'].fillna(0) - df['adx_neg'].fillna(0)) / (df['adx_pos'].fillna(0) + df['adx_neg'].fillna(0) + 1e-9)
+    donch = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=20, fillna=False)
     df['donchian_high'] = donch.donchian_channel_hband()
     df['donchian_low'] = donch.donchian_channel_lband()
     df['donchian_mid'] = donch.donchian_channel_mband()
     df['donchian_pos'] = (df['close'] - df['donchian_low']) / (df['donchian_high'] - df['donchian_low'] + 1e-9)
-    df['donchian_width'] = (df['donchian_high'] - df['donchian_low']) / df['donchian_mid']
-    
-    donch55 = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=55)
-    high_band55 = donch55.donchian_channel_hband()
-    low_band55 = donch55.donchian_channel_lband()
-    mid_band55 = donch55.donchian_channel_mband()
-    df['donchian_pos_55'] = (df['close'] - low_band55) / (high_band55 - low_band55 + 1e-9)
-    df['donchian_width_55'] = (high_band55 - low_band55) / mid_band55
-    
-    df['volume_price_corr'] = df['close'].rolling(window=20).corr(df['tick_volume'])
-    
-    df['volume_ratio'] = df['tick_volume'] / df['tick_volume'].rolling(window=20).mean()
-    
-    obv = ta.volume.OnBalanceVolumeIndicator(df['close'], df['tick_volume'])
-    df['obv_raw'] = obv.on_balance_volume()
-    df['obv_ema'] = df['obv_raw'].ewm(span=20, adjust=False).mean()
-    df['obv_change'] = df['obv_raw'].pct_change(20)
-    df['obv_slope'] = (df['obv_raw'] - df['obv_raw'].shift(5)) / (df['obv_raw'].shift(5) + 1e-9)
-    
-    for lag in range(1, 6):
-        df[f'return_lag_{lag}'] = df['close'].pct_change(lag)
-    
-    for window in [10, 20, 100]:
-        df[f'price_to_ma_{window}'] = df['close'] / df['close'].rolling(window=window).mean() - 1
-    
-    df['volatility_10'] = df['close'].rolling(window=10).std() / df['close'].rolling(window=10).mean()
-    df['volatility_20'] = df['close'].rolling(window=20).std() / df['close'].rolling(window=20).mean()
-    
+    df['donchian_width'] = (df['donchian_high'] - df['donchian_low']) / (df['donchian_mid'] + 1e-9)
+    donch55 = ta.volatility.DonchianChannel(df['high'], df['low'], df['close'], window=55, fillna=False)
+    df['donchian_pos_55'] = (df['close'] - donch55.donchian_channel_lband()) / (donch55.donchian_channel_hband() - donch55.donchian_channel_lband() + 1e-9)
+    df['donchian_width_55'] = (donch55.donchian_channel_hband() - donch55.donchian_channel_lband()) / (donch55.donchian_channel_mband() + 1e-9)
+    if 'tick_volume' in df.columns and not df['tick_volume'].isnull().all():
+        df['volume_price_corr'] = df['close'].rolling(window=20).corr(df['tick_volume'])
+        df['volume_ratio'] = df['tick_volume'] / (df['tick_volume'].rolling(window=20).mean() + 1e-9)
+        obv = ta.volume.OnBalanceVolumeIndicator(df['close'], df['tick_volume'], fillna=False)
+        df['obv_raw'] = obv.on_balance_volume()
+        df['obv_ema'] = df['obv_raw'].ewm(span=20, adjust=False).mean()
+        df['obv_change'] = df['obv_raw'].pct_change(20)
+        df['obv_slope'] = (df['obv_raw'] - df['obv_raw'].shift(5)) / (df['obv_raw'].shift(5).replace(0, 1e-9) + 1e-9)
+    else:
+        for col in ['volume_price_corr', 'volume_ratio', 'obv_raw', 'obv_ema', 'obv_change', 'obv_slope']: df[col] = 0.0
+    for lag in range(1, 6): df[f'return_lag_{lag}'] = df['close'].pct_change(lag)
+    for window in [10, 20, 100]: df[f'price_to_ma_{window}'] = df['close'] / (df['close'].rolling(window=window).mean() + 1e-9) - 1
+    df['volatility_10'] = df['close'].rolling(window=10).std() / (df['close'].rolling(window=10).mean() + 1e-9)
+    df['volatility_20'] = df['close'].rolling(window=20).std() / (df['close'].rolling(window=20).mean() + 1e-9)
     df['momentum_5d'] = df['close'].pct_change(5)
     df['momentum_20d'] = df['close'].pct_change(20)
-    
-    df['high_low_pct'] = (df['high'] - df['low']) / df['close']
-    df['open_close_pct'] = (df['close'] - df['open']) / df['open']
-    
-    df['pct_from_20d_high'] = df['close'] / df['high'].rolling(20).max() - 1
-    df['pct_from_20d_low'] = df['close'] / df['low'].rolling(20).min() - 1
-    
+    df['high_low_pct'] = (df['high'] - df['low']) / (df['close'] + 1e-9)
+    df['open_close_pct'] = (df['close'] - df['open']) / (df['open'] + 1e-9)
+    df['pct_from_20d_high'] = df['close'] / (df['high'].rolling(20).max() + 1e-9) - 1
+    df['pct_from_20d_low'] = df['close'] / (df['low'].rolling(20).min() + 1e-9) - 1
     rolling_mean10 = df['close'].rolling(window=10).mean()
     rolling_std10 = df['close'].rolling(window=10).std()
-    df['z_score_10'] = (df['close'] - rolling_mean10) / rolling_std10
-    
+    df['z_score_10'] = (df['close'] - rolling_mean10) / (rolling_std10 + 1e-9)
     for window in [20, 50]:
         rolling_mean = df['close'].rolling(window=window).mean()
         rolling_std = df['close'].rolling(window=window).std()
-        df[f'z_score_{window}'] = (df['close'] - rolling_mean) / rolling_std
-    
-    if 'until_invalid' in df.columns:
-        df['is_event_near'] = df['until_invalid'].shift(1) < 1
-    else:
-        df['is_event_near'] = False
-
-    df.dropna(inplace=True)
+        df[f'z_score_{window}'] = (df['close'] - rolling_mean) / (rolling_std + 1e-9)
+    if 'until_invalid' in df.columns: df['is_event_near'] = (df['until_invalid'].shift(1) < 1).astype(int)
+    else: df['is_event_near'] = 0
+    df.replace([np.inf, -np.inf], 0, inplace=True) # Replace infs with 0, or consider NaN and dropna
+    df.fillna(0, inplace=True) # Fill remaining NaNs with 0 - review if this is appropriate for all features
+    # df.dropna(inplace=True) # Alternative: drop rows with any NaNs after calculation
     df.reset_index(drop=True, inplace=True)
     return df
 
+
 def get_neg_pos_bin_indices(bin_edges: np.ndarray):
-    neg_indices = []
-    pos_indices = []
-    num_bins = len(bin_edges) - 1
+    """ Identifies bin indices corresponding to negative and positive moves. """
+    neg_indices, pos_indices, num_bins = [], [], len(bin_edges) - 1
     for i in range(num_bins):
-        left_edge  = bin_edges[i]
-        right_edge = bin_edges[i+1]
-        if right_edge <= 0:
-            neg_indices.append(i)
-        elif left_edge >= 0:
-            pos_indices.append(i)
+        if bin_edges[i+1] <= 0: neg_indices.append(i)
+        elif bin_edges[i] >= 0: pos_indices.append(i)
     return neg_indices, pos_indices
 
 def aggregate_signal(proba, price, bin_edges, model_classes, prob_threshold, price_to_sma_50):
-    """
-    Aggregate signal generation with trend filter similar to trainfinal.py
-    
-    Args:
-        proba: Probability predictions from the model
-        price: Current price
-        bin_edges: Bin edges for the model
-        model_classes: Classes from the model
-        prob_threshold: Probability threshold for signal generation
-        price_to_sma_50: Current price relative to 50-day SMA (as a percentage)
-        
-    Returns:
-        signal, weighted_pos_move, weighted_neg_move, tp
-    """
-    bin_label_to_col = {lbl: idx for idx, lbl in enumerate(model_classes)}
+    """ Aggregates model probabilities into a final signal with trend filtering. """
+    bin_label_to_proba_idx = {label: idx for idx, label in enumerate(model_classes)}
     neg_indices, pos_indices = get_neg_pos_bin_indices(bin_edges)
-    
-    neg_bins = {}
-    for i in neg_indices:
-        if i in bin_label_to_col:
-            neg_bins[i] = abs(bin_edges[i])
-    
-    pos_bins = {}
-    for j in pos_indices:
-        if j in bin_label_to_col:
-            pos_bins[j] = bin_edges[j+1]
-    
-    agg_pos = 0.0
-    agg_neg = 0.0
-    sum_pos_move = 0.0
-    sum_neg_move = 0.0
+    valid_neg_bins = [i for i in neg_indices if i in model_classes]
+    valid_pos_bins = [i for i in pos_indices if i in model_classes]
+    agg_pos_prob, sum_pos_move = 0.0, 0.0
+    for bin_label in valid_pos_bins:
+        p = proba[bin_label_to_proba_idx[bin_label]]
+        agg_pos_prob += p; sum_pos_move += p * ((bin_edges[bin_label] + bin_edges[bin_label+1]) / 2.0)
+    agg_neg_prob, sum_neg_move = 0.0, 0.0
+    for bin_label in valid_neg_bins:
+        p = proba[bin_label_to_proba_idx[bin_label]]
+        agg_neg_prob += p; sum_neg_move += p * abs((bin_edges[bin_label] + bin_edges[bin_label+1]) / 2.0)
+    exp_pos_mag = sum_pos_move / (agg_pos_prob + 1e-9)
+    exp_neg_mag = sum_neg_move / (agg_neg_prob + 1e-9)
+    signal, pred_tp, prob_diff = 0, None, agg_pos_prob - agg_neg_prob
+    trend_factor = 1.2
+    if prob_diff >= prob_threshold: # Potential BUY
+        if price_to_sma_50 < 0 and prob_diff < (prob_threshold * trend_factor): logger.info("BUY rejected: Against trend.")
+        else: signal, pred_tp = 1, price + exp_pos_mag
+    elif -prob_diff >= prob_threshold: # Potential SELL
+        if price_to_sma_50 > 0 and (-prob_diff) < (prob_threshold * trend_factor): logger.info("SELL rejected: Against trend.")
+        else: signal, pred_tp = -1, price - exp_neg_mag
+    return signal, exp_pos_mag, exp_neg_mag, pred_tp
 
-    for p_bin, move_val in pos_bins.items():
-        p_idx = bin_label_to_col[p_bin]
-        p_prob = proba[p_idx]
-        agg_pos += p_prob
-        sum_pos_move += p_prob * move_val
 
-    for n_bin, move_val in neg_bins.items():
-        n_idx = bin_label_to_col[n_bin]
-        n_prob = proba[n_idx]
-        agg_neg += n_prob
-        sum_neg_move += n_prob * move_val
-
-    weighted_pos_move = sum_pos_move / agg_pos if agg_pos > 0 else 0
-    weighted_neg_move = sum_neg_move / agg_neg if agg_neg > 0 else 0
-    
-    prob_diff = agg_pos - agg_neg
-    
-    if prob_diff >= prob_threshold:
-        signal = 1
-        tp = price + weighted_pos_move
-    elif -prob_diff >= prob_threshold:
-        signal = -1
-        tp = price - weighted_neg_move
-    else:
-        signal = 0
-        tp = None
-    
-    if signal == -1 and price_to_sma_50 > 0:
-        if -prob_diff < (prob_threshold * 1.2):
-            logger.info("Short signal rejected due to uptrend (higher threshold required)")
-            signal = 0
-            tp = None
-    
-    if signal == 1 and price_to_sma_50 < 0:
-        if prob_diff < (prob_threshold * 1.2):
-            logger.info("Long signal rejected due to downtrend (higher threshold required)")
-            signal = 0
-            tp = None
-
-    return signal, weighted_pos_move, weighted_neg_move, tp
-
+# --- Data Buffer Class ---
 class LiveDataBuffer:
+    """ Holds recent bar data and calculates 'until_invalid'. """
     def __init__(self, max_size=BUFFER_SIZE, news_events=None):
         self.max_size = max_size
         self.buffer = deque(maxlen=max_size)
-        self.news_events = news_events or []
+        self.news_events = news_events if news_events is not None else []
+        self.last_timestamp_processed = None
 
     def append(self, bar):
-        bar_ts = pd.to_datetime(bar['timestamp'])
-        bar_ts = bar_ts.replace(tzinfo=timezone.utc) - timedelta(hours=3)
-        
-        until_inv = calc_until_invalid(
-            bar_ts,
-            news_events=self.news_events,
-            pre_news_buffer=1,
-            post_news_buffer=30,
-            maintenance_start=22,
-            maintenance_end=0,
-        )
+        """ Adds a new bar, calculates time until invalid period. """
+        try:
+            bar_ts_naive = pd.to_datetime(bar['timestamp'].replace('.', '-'))
+        except Exception as e: # Catch more general parsing errors
+            logger.error(f"Could not parse timestamp: {bar.get('timestamp')}. Error: {e}. Skipping bar.")
+            return
+        # Assume incoming naive timestamp is UTC, make it timezone-aware
+        bar_ts_utc = bar_ts_naive.replace(tzinfo=timezone.utc)
 
-        row = {
-            'timestamp': bar_ts,
-            'open': float(bar['open']),
-            'high': float(bar['high']),
-            'low': float(bar['low']),
-            'close': float(bar['close']),
-            'volume': float(bar['volume']),
-            'tick_volume': float(bar['volume']),
-            'until_invalid': until_inv
-        }
+        if bar_ts_utc == self.last_timestamp_processed:
+            return # Skip duplicate timestamps
+
+        self.last_timestamp_processed = bar_ts_utc
+        until_inv = calc_until_invalid(bar_ts_utc, self.news_events, 1, 30, 22, 0) # Args: pre_news, post_news, maint_start_hr, maint_end_hr
+        row = {'timestamp': bar_ts_utc, 'open': float(bar['open']), 'high': float(bar['high']),
+               'low': float(bar['low']), 'close': float(bar['close']), 'volume': float(bar['volume']),
+               'tick_volume': float(bar['volume']), # Use 'volume' as 'tick_volume' if real volume not separate
+               'until_invalid': until_inv}
         self.buffer.append(row)
-        logger.debug(f"Added bar: close={row['close']}, until_invalid={until_inv}")
+        # logger.debug(f"Added bar: {row['timestamp']} C={row['close']:.5f}, InvIn={until_inv}m")
 
     def to_dataframe(self):
+        """ Converts the buffer to a Pandas DataFrame. """
         return pd.DataFrame(list(self.buffer))
 
+
+# --- DLL Socket Server Class ---
 class DllSocketServer:
-    def __init__(self, pipeline_trader, host, port, allowed_devices):
+    """ Handles socket communication with MQL4 DLLs, including auth and encryption. """
+    def __init__(self, pipeline_trader, host, port, allowed_hwids_map):
         self.pipeline_trader = pipeline_trader
-        self.host = host
-        self.port = port
-        self.allowed_devices = allowed_devices
-
-        self.server_socket = None
-        self.running = True
-
-        self.connections = []
-        self.conn_lock = threading.Lock()
-        
-        self.device_trades = {}
+        self.host, self.port = host, port
+        self.allowed_hwids_map = allowed_hwids_map # Reference to shared dict
+        self.server_socket, self.running = None, True
+        self.connections_lock = threading.Lock()
+        self.connections = [] # Stores [socket, address, hwid, authenticated_flag]
+        self.device_trades_lock = threading.Lock()
+        self.device_trades = {} # Stores {hwid: {trade_id: trade_info}}
 
     def start(self):
-        t_accept = threading.Thread(target=self._accept_loop, daemon=True)
-        t_accept.start()
-
-        t_recv = threading.Thread(target=self._recv_loop, daemon=True)
-        t_recv.start()
-        
-        logger.info(f"DLL Socket Server started on {self.host}:{self.port}")
-
-    def stop(self):
-        self.running = False
-        if self.server_socket:
-            self.server_socket.close()
-        logger.info("DLL Socket Server stopped")
-
-    def _accept_loop(self):
+        """ Binds the server socket and starts listening threads. """
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(5)
+        try:
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(5)
+            logger.info(f"DLL Socket Server listening on {self.host}:{self.port}")
+        except OSError as e:
+            logger.critical(f"DLL Socket Server FAILED to bind to port {self.port}: {e}")
+            self.running = False
+            return
+        threading.Thread(target=self._accept_loop, daemon=True, name="DLLAcceptThread").start()
+        threading.Thread(target=self._recv_loop, daemon=True, name="DLLRecvThread").start()
 
-        logger.info(f"DLL Socket Server listening on {self.host}:{self.port}")
+    def stop(self):
+        """ Stops the server and closes all connections. """
+        self.running = False
+        if self.server_socket:
+            try: self.server_socket.shutdown(socket.SHUT_RDWR) # Attempt graceful shutdown
+            except OSError: pass # Socket might already be closed
+            self.server_socket.close()
+            self.server_socket = None
+        with self.connections_lock:
+            for conn_details in self.connections:
+                sock = conn_details[0]
+                try: sock.shutdown(socket.SHUT_RDWR)
+                except OSError: pass
+                sock.close()
+            self.connections.clear()
+        logger.info("DLL Socket Server stopped and connections closed.")
 
-        while self.running:
+    def _accept_loop(self):
+        """ Accepts incoming client connections. """
+        while self.running and self.server_socket:
             try:
                 conn, addr = self.server_socket.accept()
-                client_ip = addr[0]
-                logger.info(f"DLL connection from {client_ip}:{addr[1]}")
-
-                if client_ip in self.allowed_devices or client_ip == "127.0.0.1" or client_ip == "localhost":
-                    account_id = self.allowed_devices.get(client_ip, "TEST")
-                    with self.conn_lock:
-                        self.connections.append((conn, client_ip))
-                        if client_ip not in self.device_trades:
-                            self.device_trades[client_ip] = {}
-                    logger.info(f"Device IP {client_ip} with Account ID {account_id} connected")
-                else:
-                    logger.warning(f"IP {client_ip} not allowed, closing connection")
-                    conn.close()
-
-            except Exception as e:
-                if self.running:
-                    logger.error(f"Accept error: {e}")
+                logger.info(f"DLL connection attempt from {addr[0]}:{addr[1]}")
+                with self.connections_lock:
+                    self.connections.append([conn, addr, None, False]) # Add connection initially unauthenticated
+            except OSError: # Handles socket closing during shutdown
+                if self.running: logger.warning("Accept loop error or socket closed.")
                 break
+            except Exception as e:
+                if self.running: logger.error(f"Unexpected accept error: {e}", exc_info=True)
+                break
+        logger.info("DLL accept loop finished.")
 
-        logger.info("DLL accept loop stopped")
+    def _remove_connection(self, index_to_remove):
+        """ Safely removes a connection from the list and closes its socket. """
+        with self.connections_lock:
+            if 0 <= index_to_remove < len(self.connections):
+                conn, addr, hwid, _ = self.connections.pop(index_to_remove)
+                logger.info(f"Removed connection from {addr[0]} (HWID: {hwid}).")
+                try: conn.close()
+                except OSError: pass
+                # Optionally clear trades associated with this HWID upon disconnect
+                # with self.device_trades_lock:
+                #     if hwid and hwid in self.device_trades:
+                #         logger.info(f"Clearing tracked trades for disconnected HWID: {hwid}")
+                #         del self.device_trades[hwid]
+                return True
+        return False
 
     def _recv_loop(self):
+        """ Handles receiving data from all connected clients. """
         while self.running:
-            with self.conn_lock:
-                for conn, client_ip in list(self.connections):
+            indices_to_remove = []
+            # Iterate safely using index for removal later
+            with self.connections_lock:
+                for i in range(len(self.connections) - 1, -1, -1):
+                    conn_details = self.connections[i]
+                    conn, addr, current_hwid, is_authenticated = conn_details
+                    client_ip = addr[0]
                     try:
-                        conn.settimeout(0.001)
+                        conn.settimeout(0.01) # Non-blocking check
                         data = conn.recv(1024)
                         if data:
+                            # Assume DLL sends plain text, Python encrypts outgoing only
+                            # If DLL also encrypts, decryption needed here:
+                            # data = xor_cipher(data, ENCRYPTION_KEY) # Example if DLL encrypts
                             msg = data.decode('utf-8', errors='replace').strip()
-                            logger.info(f"Received from {client_ip}: {msg}")
+                            logger.info(f"Socket RECV from {client_ip} (HWID: {current_hwid}, Auth: {is_authenticated}): {msg}")
 
-                            if msg.startswith("OPEN_CONFIRM|"):
-                                parts = msg.split("|")
-                                if len(parts) >= 2:
-                                    tid_str = parts[1].replace("ID=", "")
+                            if not is_authenticated:
+                                if msg.startswith("AUTH|HWID="):
                                     try:
-                                        tid = int(tid_str)
-                                        trade_info = self.pipeline_trader.get_trade_info(tid)
-                                        if trade_info:
-                                            self.device_trades[client_ip][tid] = trade_info
-                                            logger.info(f"Added trade ID={tid} to device {client_ip}")
+                                        received_hwid = msg.split("=", 1)[1]
+                                        # Check against the dynamically updated map
+                                        if received_hwid in self.pipeline_trader.allowed_devices:
+                                            conn_details[2] = received_hwid # Set HWID
+                                            conn_details[3] = True      # Set authenticated
+                                            current_hwid = received_hwid # Update local scope var
+                                            is_authenticated = True  # Update local scope var
+                                            with self.device_trades_lock: # Ensure dict exists for hwid
+                                                if current_hwid not in self.device_trades:
+                                                    self.device_trades[current_hwid] = {}
+                                            acc_id = self.pipeline_trader.allowed_devices[received_hwid]
+                                            logger.info(f"HWID {received_hwid} authenticated for AccountID {acc_id} from IP {client_ip}.")
                                         else:
-                                            self.device_trades[client_ip][tid] = {
-                                                "id": tid,
-                                                "confirmed_open": True,
-                                                "entry_ts": datetime.now(timezone.utc)
-                                            }
-                                            logger.info(f"Created new trade ID={tid} for device {client_ip}")
-                                    except:
-                                        logger.warning(f"Could not parse trade ID from OPEN_CONFIRM: {tid_str}")
+                                            logger.warning(f"Auth FAIL: HWID '{received_hwid}' from {client_ip} not in allowed devices. Closing.")
+                                            indices_to_remove.append(i)
+                                    except Exception as e: # Catch potential index errors etc.
+                                        logger.error(f"Error processing AUTH msg '{msg}' from {client_ip}: {e}. Closing.", exc_info=True)
+                                        indices_to_remove.append(i)
+                                else:
+                                    logger.warning(f"First msg from {client_ip} not AUTH: '{msg}'. Closing.")
+                                    indices_to_remove.append(i)
+                            else: # Already authenticated, process trade confirmations etc.
+                                if msg.startswith("OPEN_CONFIRM|"):
+                                    # Extract trade ID (Python ID) and potentially MQL ticket
+                                    py_id = ""
+                                    for part in msg.split('|'):
+                                        if part.startswith("ID="):
+                                            py_id = part.split("=",1)[1]
+                                            break
+                                    if py_id:
+                                        with self.device_trades_lock:
+                                            if current_hwid in self.device_trades:
+                                                # Store confirmation details, maybe link to original trade_pkg if needed
+                                                self.device_trades[current_hwid][py_id] = {"id": py_id, "status": "open_confirmed", "confirmed_at": datetime.now(timezone.utc).isoformat()}
+                                                logger.info(f"Trade ID={py_id} OPEN_CONFIRMED for HWID={current_hwid}.")
+                                            else: logger.warning(f"Received OPEN_CONFIRM for HWID {current_hwid} which isn't tracked?")
+                                    else: logger.warning(f"Could not parse ID from OPEN_CONFIRM: {msg}")
 
-                            if msg.startswith("CLOSE|"):
-                                parts = msg.split("|")
-                                if len(parts) >= 2:
-                                    tid_str = parts[1].replace("ID=", "")
-                                    try:
-                                        tid = int(tid_str)
-                                        if tid in self.device_trades.get(client_ip, {}):
-                                            logger.info(f"Marking trade ID={tid} for closure for device {client_ip}")
-                                            self.device_trades[client_ip][tid]["pending_close"] = True
-                                        self.pipeline_trader.on_position_closed(tid, "CLOSE")
-                                    except:
-                                        logger.warning(f"Could not parse trade ID: {tid_str}")
+                                elif msg.startswith("CLOSED_CONFIRM|"):
+                                    py_id = ""
+                                    for part in msg.split('|'):
+                                        if part.startswith("ID="):
+                                            py_id = part.split("=",1)[1]
+                                            break
+                                    if py_id:
+                                        with self.device_trades_lock:
+                                            # Remove from active device trades upon confirmation
+                                            if current_hwid in self.device_trades and py_id in self.device_trades[current_hwid]:
+                                                del self.device_trades[current_hwid][py_id]
+                                                logger.info(f"Trade ID={py_id} CLOSED_CONFIRMED and removed for HWID={current_hwid}.")
+                                            else:
+                                                logger.info(f"Trade ID={py_id} CLOSED_CONFIRMED for HWID={current_hwid}, but not in local device track.")
+                                        # Notify main trader logic about the closure confirmation
+                                        self.pipeline_trader.on_position_closed(py_id, "CLOSED_CONFIRM_DLL")
+                                    else: logger.warning(f"Could not parse ID from CLOSED_CONFIRM: {msg}")
 
-                            if msg.startswith("CLOSED_CONFIRM|"):
-                                parts = msg.split("|")
-                                if len(parts) >= 2:
-                                    tid_str = parts[1].replace("ID=", "")
-                                    try:
-                                        tid = int(tid_str)
-                                        logger.info(f"Received CLOSED_CONFIRM for trade ID: {tid}")
-                                        if tid in self.device_trades.get(client_ip, {}):
-                                            del self.device_trades[client_ip][tid]
-                                            logger.info(f"Removed trade ID={tid} from device {client_ip}")
-                                        self.pipeline_trader.on_position_closed(tid, "CLOSED_CONFIRM")
-                                    except:
-                                        logger.warning(f"Could not parse trade ID from CLOSED_CONFIRM: {tid_str}")
+                                elif msg.startswith("EDIT_CONFIRM|"):
+                                    logger.info(f"Received EDIT_CONFIRM from HWID={current_hwid}: {msg}")
+                                    # Potentially update internal state if needed based on confirmation
 
-                            if msg.startswith("OPEN_CONFIRM|") or msg.startswith("CLOSED_CONFIRM|") or msg.startswith("EDIT_CONFIRM|"):
-                                logger.info(f"Confirmation received: {msg}")
-                                
-                            self.pipeline_trader.forward_to_aspnet(msg, client_ip)
-                    except socket.timeout:
-                        pass
+                                # Forward relevant messages to ASP.NET
+                                self.pipeline_trader.forward_to_aspnet(msg, client_ip, current_hwid)
+
+                        elif not data: # Client closed connection cleanly
+                            logger.info(f"Connection closed by {client_ip} (HWID: {current_hwid}).")
+                            indices_to_remove.append(i)
+
+                    except socket.timeout: continue # Normal for non-blocking recv
+                    except (ConnectionResetError, BrokenPipeError, OSError) as e:
+                        logger.warning(f"Socket ERR for {client_ip} (HWID: {current_hwid}): {e}. Marking for removal.")
+                        indices_to_remove.append(i)
                     except Exception as e:
-                        logger.error(f"Receive error: {e}")
-                        if client_ip in self.device_trades:
-                            logger.info(f"Removing all trades for disconnected device {client_ip}")
-                            del self.device_trades[client_ip]
-                        self.connections.remove((conn, client_ip))
-                        conn.close()
-            time.sleep(0.05)
+                        logger.error(f"Unexpected RECV loop ERR for {client_ip} (HWID: {current_hwid}): {e}. Marking for removal.", exc_info=True)
+                        indices_to_remove.append(i)
 
-    def send_signal_to_clients(self, message):
-        with self.conn_lock:
-            if not self.connections:
-                logger.warning("No connected clients to send message to!")
+            # Remove disconnected clients outside the loop iteration
+            if indices_to_remove:
+                # Sort indices descending to avoid shifting issues during removal
+                for index in sorted(list(set(indices_to_remove)), reverse=True):
+                    self._remove_connection(index)
+
+            time.sleep(0.05) # Small sleep to prevent high CPU usage
+        logger.info("DLL receive loop finished.")
+
+    def send_signal_to_clients(self, message: str):
+        """ Encrypts and sends a message to all authenticated DLL clients. """
+        indices_to_remove = []
+        with self.connections_lock:
+            if not any(auth for _, _, _, auth in self.connections):
+                # logger.warning("No authenticated DLL clients to send signal to.") # Can be noisy
                 return
-                
-            for conn, client_ip in list(self.connections):
-                try:
-                    conn.sendall(message.encode('utf-8'))
-                    logger.info(f"Sent to {client_ip}: {message}")
-                except Exception as e:
-                    logger.error(f"Send error: {e}")
-                    if client_ip in self.device_trades:
-                        logger.info(f"Removing all trades for disconnected device {client_ip}")
-                        del self.device_trades[client_ip]
-                    self.connections.remove((conn, client_ip))
-                    conn.close()
-    
-    def get_device_trades(self, client_ip=None):
-        if client_ip:
-            return self.device_trades.get(client_ip, {})
-        return self.device_trades
 
+            # Encrypt the message using XOR cipher
+            encrypted_message_bytes = xor_cipher(message.encode('utf-8'), ENCRYPTION_KEY)
+            if not encrypted_message_bytes and message: # Check if encryption failed
+                logger.error(f"XOR Encryption failed for message: {message}. Check key. Aborting send.")
+                return
+
+            logger.debug(f"Plain message: '{message}', Encrypted length: {len(encrypted_message_bytes)}")
+
+            for i, conn_details in enumerate(self.connections):
+                conn, addr, hwid, authenticated = conn_details
+                if authenticated:
+                    try:
+                        conn.sendall(encrypted_message_bytes)
+                        # Log the plain message for server readability, but indicate encryption
+                        logger.info(f"Sent (encrypted) to {addr[0]} (HWID: {hwid}): {message}")
+                    except (ConnectionResetError, BrokenPipeError, OSError) as e:
+                        logger.error(f"Send error to {addr[0]} (HWID: {hwid}): {e}. Marking for removal.")
+                        indices_to_remove.append(i)
+                    except Exception as e:
+                        logger.error(f"Unexpected send error to {addr[0]} (HWID: {hwid}): {e}. Marking for removal.", exc_info=True)
+                        indices_to_remove.append(i)
+
+        # Process removals outside the main connections_lock critical section
+        if indices_to_remove:
+            for index in sorted(list(set(indices_to_remove)), reverse=True):
+                self._remove_connection(index)
+
+    def get_device_trades(self, hwid=None):
+        """ Returns a copy of the tracked trades for a specific HWID or all HWIDs. """
+        with self.device_trades_lock:
+            if hwid:
+                return self.device_trades.get(hwid, {}).copy() # Return copy of specific HWID's trades
+            return self.device_trades.copy() # Return copy of the entire dictionary
+
+
+# --- API Request Handler Class ---
 class ApiRequestHandler(BaseHTTPRequestHandler):
-    pipeline_trader = None
+    """ Handles incoming HTTP requests for commands (START, EDIT, OPEN, CLOSE). """
+    pipeline_trader = None # Static variable shared across handlers
 
-    def log_message(self, format, *args):
-        pass
+    def log_message(self, format, *args): pass # Suppress default logging
 
     def send_json_response(self, status_code, data):
+        """ Sends a JSON response with appropriate headers. """
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Origin', '*') # CORS header
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
     def check_api_key(self):
+        """ Validates the x-api-key header. """
         api_key = self.headers.get('x-api-key')
         if not api_key or api_key != API_KEY:
+            logger.warning(f"Unauthorized API access from {self.client_address[0]}. Path: {self.path}. Key: '{api_key}'")
             self.send_json_response(401, {"error": "Unauthorized"})
             return False
         return True
 
     def do_OPTIONS(self):
-        self.send_response(200)
+        """ Handles CORS preflight requests. """
+        self.send_response(200, "ok")
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
         self.end_headers()
 
     def do_GET(self):
+        """ Handles GET requests (currently only /health). """
         if self.path == '/health':
-            self.send_json_response(200, {
-                "status": "healthy",
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            })
+            self.send_json_response(200, {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()})
         else:
             self.send_json_response(404, {"error": "Endpoint not found"})
 
     def do_POST(self):
-        if not self.check_api_key():
+        """ Handles POST requests for /command and legacy /edit. """
+        if not self.check_api_key(): return
+        content_length = int(self.headers.get('Content-Length', 0));
+        if content_length == 0: self.send_json_response(400, {"error": "Empty request body"}); return
+        post_data_bytes = self.rfile.read(content_length)
+        try:
+            json_data = json.loads(post_data_bytes.decode('utf-8'))
+            logger.info(f"API POST to {self.path} from {self.client_address[0]}: {json.dumps(json_data)}")
+        except Exception as e:
+            logger.error(f"Invalid JSON or decode error from {self.client_address[0]}: {e}", exc_info=True)
+            self.send_json_response(400, {"error": "Invalid JSON format"})
             return
 
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
+        if not ApiRequestHandler.pipeline_trader:
+            logger.error("ApiRequestHandler.pipeline_trader is not set. Cannot process command.")
+            self.send_json_response(503, {"error": "Service temporarily unavailable - trader not initialized."})
+            return
 
         try:
-            json_data = json.loads(post_data.decode('utf-8'))
-            
             if self.path == '/command':
                 command = json_data.get('command')
-                
                 if command == 'START':
-                    account_id = json_data.get('accountId')
-                    allowed_ip = json_data.get('ip')
-                    
-                    if self.pipeline_trader:
-                        self.pipeline_trader.allowed_devices[allowed_ip] = account_id
-                        logger.info(f"Updated allowed devices: {allowed_ip} -> {account_id}")
-                        self.send_json_response(200, {"status": "ok", "message": "Account started"})
-                    else:
-                        self.send_json_response(500, {"error": "Pipeline trader not initialized"})
-                
+                    hwid = json_data.get('hwid')
+                    account_id = str(json_data.get('accountId', 'UNKNOWN_ACCOUNT'))
+                    if not hwid:
+                        self.send_json_response(400, {"error": "HWID is required for START."})
+                        return
+                    # Update the shared allowed_devices map in pipeline_trader
+                    ApiRequestHandler.pipeline_trader.allowed_devices[hwid] = account_id
+                    logger.info(f"API: Registered/Updated HWID={hwid} for AccountID={account_id}")
+                    self.send_json_response(200, {"status": "ok", "message": f"HWID {hwid} registered for Account ID {account_id}"})
+
                 elif command == 'EDIT':
-                    account_id = json_data.get('accountId')
-                    max_risk = json_data.get('maxRisk')
-                    untradable_period = json_data.get('untradablePeriod')
-                    
-                    msg = f"EDIT|{account_id}|{max_risk}|{untradable_period}"
-                    logger.info(f"EDIT command: Account={account_id}, MaxRisk={max_risk}, UntradablePeriod={untradable_period}")
-                    
-                    if self.pipeline_trader:
-                        self.pipeline_trader.send_signal(msg)
-                        self.send_json_response(200, {"status": "ok", "message": "Edit command sent"})
-                    else:
-                        self.send_json_response(500, {"error": "Pipeline trader not initialized"})
-                
-                elif command == 'OPEN':
-                    id = json_data.get('id')
-                    type = json_data.get('type')
-                    symbol = json_data.get('symbol')
-                    tp = json_data.get('tp')
-                    minutes_until_invalid = json_data.get('minutesUntilInvalid')
-                    
-                    msg = f"OPEN|ID={id}|{type}|{symbol}|TP={tp}|MinutesUntilInvalid={minutes_until_invalid}"
-                    logger.info(f"Trading command received: {msg}")
-                    
-                    if self.pipeline_trader:
-                        self.pipeline_trader.send_signal(msg)
-                        self.send_json_response(200, {"status": "ok", "message": "Open command sent"})
-                    else:
-                        self.send_json_response(500, {"error": "Pipeline trader not initialized"})
-                
-                elif command == 'CLOSE':
-                    id = json_data.get('id')
-                    
-                    msg = f"CLOSE|ID={id}"
-                    logger.info(f"Trading command received: {msg}")
-                    
-                    if self.pipeline_trader:
-                        self.pipeline_trader.send_signal(msg)
-                        self.send_json_response(200, {"status": "ok", "message": "Close command sent"})
-                    else:
-                        self.send_json_response(500, {"error": "Pipeline trader not initialized"})
-                
+                    # --- EDIT Command Correction for MQL4 ---
+                    # Extract specific fields expected by MQL4: accountId, maxRisk, untradablePeriod
+                    account_id_str = str(json_data.get('accountId', '0')) # Default to '0' if missing
+                    max_risk_str = str(json_data.get('maxRisk', '1.5')) # Default if missing
+                    untradable_period_str = str(json_data.get('untradablePeriod', '60')) # Default if missing
+
+                    # Construct message in the exact format MQL4 expects: EDIT|accountId|maxRisk|untradablePeriod
+                    msg_to_dll = f"EDIT|{account_id_str}|{max_risk_str}|{untradable_period_str}"
+                    # --- End of Correction ---
+                    logger.info(f"API: Sending {command.upper()} to DLLs: {msg_to_dll}")
+                    ApiRequestHandler.pipeline_trader.send_signal(msg_to_dll)
+                    self.send_json_response(200, {"status": "ok", "message": f"{command.upper()} command sent to DLLs."})
+
+                elif command in ['OPEN', 'CLOSE']:
+                    # Build message generically, but be mindful of MQL expectations if using API for OPEN
+                    params_list = []
+                    if command == 'OPEN':
+                        # Format for OPEN needs to match MQL expectation if API is used to open trades:
+                        # OPEN|ID=val|TYPE|SYMBOL|TP=val|MINUTESUNTILINVALID=val|API_ID=val
+                        # We need specific keys in the JSON for this.
+                        py_id = json_data.get('ID', f'API_OPEN_{int(time.time())}') # API needs to send ID
+                        ttype = json_data.get('TYPE', 'BUY')
+                        symbol = json_data.get('SYMBOL', 'XAUUSD')
+                        tp = json_data.get('TP', '0.0')
+                        mins = json_data.get('MINUTESUNTILINVALID', '0')
+                        api_id = json_data.get('API_ID', py_id) # API should provide this for mapping
+                        # Ensure required fields are present?
+                        if tp == '0.0':
+                            logger.error("API OPEN command missing TP value.")
+                            self.send_json_response(400, {"error": "TP value required for OPEN command via API"})
+                            return
+                        # Build specific MQL OPEN format
+                        msg_to_dll = f"OPEN|ID={py_id}|{ttype}|{symbol}|TP={tp}|MINUTESUNTILINVALID={mins}|API_ID={api_id}"
+                    elif command == 'CLOSE':
+                        # CLOSE|ID=val|REASON=val|... (MQL doesn't handle this input)
+                        # Build generically for now
+                        params_list = [f"{k.upper()}={v}" for k,v in json_data.items() if k != 'command']
+                        msg_to_dll = f"{command.upper()}|{'|'.join(params_list)}"
+
+                    logger.info(f"API: Sending {command.upper()} to DLLs: {msg_to_dll}")
+                    ApiRequestHandler.pipeline_trader.send_signal(msg_to_dll)
+                    self.send_json_response(200, {"status": "ok", "message": f"{command.upper()} command sent to DLLs."})
+
                 else:
                     self.send_json_response(400, {"error": f"Unknown command: {command}"})
-            
-            elif self.path == '/edit':
-                account_id = json_data.get('account_id', '')
-                max_risk = json_data.get('max_risk', '')
-                untradable_period = json_data.get('untradable_period', '')
-                
-                edit_msg = f"EDIT|{account_id}|{max_risk}|{untradable_period}"
-                
-                if self.pipeline_trader:
-                    logger.info(f"Received EDIT command via HTTP: {edit_msg}")
-                    self.pipeline_trader.send_signal(edit_msg)
-                    self.send_json_response(200, {"status": "ok", "message": "Edit command processed successfully"})
-                else:
-                    self.send_json_response(500, {"error": "Pipeline trader not initialized"})
-            
+
+            elif self.path == '/edit': # Legacy endpoint
+                logger.warning(f"API: Deprecated /edit endpoint used by {self.client_address[0]}. Use /command.")
+                # --- Legacy EDIT Correction for MQL4 ---
+                account_id_str = str(json_data.get('account_id', '0')) # Use lowercase keys
+                max_risk_str = str(json_data.get('max_risk', '1.5'))
+                untradable_period_str = str(json_data.get('untradable_period', '60'))
+                msg_to_dll = f"EDIT|{account_id_str}|{max_risk_str}|{untradable_period_str}"
+                # --- End of Correction ---
+                logger.info(f"API /edit: Sending EDIT command to DLLs: {msg_to_dll}")
+                ApiRequestHandler.pipeline_trader.send_signal(msg_to_dll)
+                self.send_json_response(200, {"status": "ok", "message": "EDIT (legacy) command sent."})
             else:
-                self.send_json_response(404, {"error": "Endpoint not found"})
-                
+                self.send_json_response(404, {"error": "API Endpoint not found"})
+
         except Exception as e:
-            logger.error(f"Error in do_POST: {e}")
-            self.send_json_response(400, {"error": str(e)})
+            logger.error(f"Error processing API command '{json_data.get('command')}' at '{self.path}': {e}", exc_info=True)
+            self.send_json_response(500, {"error": f"Internal server error processing command."})
 
+
+# --- Bar Data Request Handler Class ---
 class BarsRequestHandler(BaseHTTPRequestHandler):
-    pipeline_trader = None  
+    """ Handles incoming HTTP POST requests containing market bar data. """
+    pipeline_trader = None # Static variable
 
-    def log_message(self, format, *args):
-        pass
+    def log_message(self, format, *args): pass # Suppress default logging
 
     def do_POST(self):
+        """ Processes POST request, decodes JSON bar data, passes to trader. """
         content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
-
+        if content_length == 0:
+            self.send_response(400); self.end_headers(); self.wfile.write(b'{"error":"Empty request body"}')
+            return
+        post_data_bytes = self.rfile.read(content_length)
         try:
-            json_data = json.loads(post_data.decode('utf-8'))
-            bar_data = {
-                "timestamp": json_data.get("time", ""),
-                "open": json_data.get("open", 0.0),
-                "high": json_data.get("high", 0.0),
-                "low": json_data.get("low", 0.0),
-                "close": json_data.get("close", 0.0),
-                "volume": json_data.get("volume", 0.0)
-            }
-            
-            bar_data["timestamp"] = bar_data["timestamp"].replace('.', '-')
+            json_data = json.loads(post_data_bytes.decode('utf-8'))
+            # Expect keys like "time", "open", "high", "low", "close", "volume"
+            bar_data = {"timestamp": json_data.get("time", ""), "open": json_data.get("open", 0.0),
+                        "high": json_data.get("high", 0.0), "low": json_data.get("low", 0.0),
+                        "close": json_data.get("close", 0.0), "volume": json_data.get("volume", 0.0)}
 
-            if self.pipeline_trader:
-                self.pipeline_trader.on_new_bar(bar_data)
+            if not bar_data["timestamp"]: # Basic validation
+                logger.error(f"Received bar data with missing timestamp from {self.client_address[0]}.")
+                self.send_response(400); self.end_headers(); self.wfile.write(b'{"error":"Missing timestamp"}'); return
 
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(b'{"status":"ok"}')
+            if BarsRequestHandler.pipeline_trader:
+                BarsRequestHandler.pipeline_trader.on_new_bar(bar_data)
+            else:
+                logger.error("BarsRequestHandler.pipeline_trader not set. Cannot process new bar.")
+                self.send_response(503); self.end_headers(); self.wfile.write(b'{"error":"Service unavailable - trader not initialized"}')
+                return
 
+            self.send_response(200); self.send_header('Content-type', 'application/json'); self.end_headers(); self.wfile.write(b'{"status":"ok"}')
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON bar data from {self.client_address[0]}: {post_data_bytes.decode('utf-8', errors='ignore')}")
+            self.send_response(400); self.end_headers(); self.wfile.write(b'{"error":"Invalid JSON format for bar data"}')
         except Exception as e:
-            logger.error(f"Error in do_POST: {e}")
-            self.send_response(400)
-            self.end_headers()
+            logger.error(f"Error in BarsRequestHandler POST from {self.client_address[0]}: {e}", exc_info=True)
+            self.send_response(500); self.end_headers(); self.wfile.write(b'{"error":"Internal server error processing bar data"}')
 
+
+# --- ASP.NET API Client Class ---
 class AspNetApiClient:
+    """ Handles communication with the ASP.NET backend API. """
     def __init__(self, api_url, api_key):
         self.api_url = api_url.rstrip('/')
         self.api_key = api_key
-        
-        self.headers = {
+        self.session = requests.Session()
+        self.session.headers.update({
             'Content-Type': 'application/json',
-            'User-Agent': 'PostmanRuntime/7.32.3',
+            'User-Agent': 'PythonTradingSystemClient/1.2', # Updated agent
             'Accept': '*/*',
             'Cache-Control': 'no-cache',
-            'Postman-Token': f'{self._generate_token()}',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'x-api-key': self.api_key
-        }
-    
-    def _generate_token(self):
-        return str(uuid.uuid4())
-    
-    def send_open_confirm(self, message_parts, client_ip):
-        try:
-            id_part = message_parts[1] if len(message_parts) > 1 else ""
-            internal_id = id_part.replace("ID=", "").strip()
-            
-            type = message_parts[2].strip() if len(message_parts) > 2 else ""
-            symbol = message_parts[3].strip() if len(message_parts) > 3 else ""
-            
-            size = message_parts[4].strip() if len(message_parts) > 4 else "0"
-            risk = message_parts[5].strip() if len(message_parts) > 5 else "0"
-            
-            opened_at_str = message_parts[6].strip() if len(message_parts) > 6 else ""
-            try:
-                if opened_at_str and "." in opened_at_str and ":" in opened_at_str:
-                    dt = datetime.strptime(opened_at_str, "%Y.%m.%d %H:%M")
-                    opened_at = dt.strftime("%Y-%m-%dT%H:%M:%S")
-                else:
-                    opened_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            except Exception as e:
-                logger.warning(f"Could not parse date '{opened_at_str}': {e}")
-                opened_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            
-            api_id = message_parts[7].strip().replace('\x00', '') if len(message_parts) > 7 else internal_id
-            
-            data = {
-                "id": api_id,
-                "symbol": symbol,
-                "type": type,
-                "size": float(size),
-                "risk": float(risk),
-                "openedAt": opened_at,
-                "fromIp": client_ip
-            }
-            
-            logger.info(f"Sending OPEN_CONFIRM to ASP.NET API: {data}")
-            
-            self.headers['Postman-Token'] = self._generate_token()
+            'x-api-key': self.api_key # Send API key in header
+        })
 
-            url = f"{self.api_url}/open-confirm"
-            
-            try:
-                logger.info(f"Trying Postman-style request: {url}")
-                payload = json.dumps(data)
-                response = requests.request("POST", url, headers=self.headers, data=payload)
-                
-                if response.status_code >= 200 and response.status_code < 300:
-                    logger.info(f"SUCCESS with Postman-style request! Response: {response.text}")
-                    return True
-                else:
-                    logger.warning(f"Postman-style request failed. Status: {response.status_code}, Response: {response.text}")
-            except Exception as e:
-                logger.warning(f"Error with Postman-style request: {e}")
-            
-            try:
-                url_with_key = f"{url}?x-api-key={self.api_key}"
-                headers_without_key = self.headers.copy()
-                if 'x-api-key' in headers_without_key:
-                    del headers_without_key['x-api-key']
-                    
-                logger.info(f"Trying Postman-style with URL param: {url_with_key}")
-                payload = json.dumps(data)
-                response = requests.request("POST", url_with_key, headers=headers_without_key, data=payload)
-                
-                if response.status_code >= 200 and response.status_code < 300:
-                    logger.info(f"SUCCESS with URL param! Response: {response.text}")
-                    return True
-                else:
-                    logger.warning(f"URL param approach failed. Status: {response.status_code}, Response: {response.text}")
-            except Exception as e:
-                logger.warning(f"Error with URL param approach: {e}")
-            
-            for api_key_location in ['header', 'url', 'both']:
-                for content_type in ['application/json', 'application/x-www-form-urlencoded']:
-                    try:
-                        headers = {
-                            'Content-Type': content_type,
-                            'User-Agent': 'PostmanRuntime/7.32.3',
-                            'Accept': '*/*',
-                            'Cache-Control': 'no-cache',
-                            'Postman-Token': self._generate_token(),
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'Connection': 'keep-alive'
-                        }
-                        
-                        url_to_use = url
-                        
-                        if api_key_location in ['header', 'both']:
-                            headers['x-api-key'] = self.api_key
-                            
-                        if api_key_location in ['url', 'both']:
-                            url_to_use = f"{url}?x-api-key={self.api_key}"
-                        
-                        logger.info(f"Fallback attempt - API key: {api_key_location}, Content-Type: {content_type}")
-                        
-                        if content_type == 'application/json':
-                            payload = json.dumps(data)
-                            response = requests.request("POST", url_to_use, headers=headers, data=payload)
-                        else:
-                            form_data = {k: str(v) for k, v in data.items()}
-                            response = requests.request("POST", url_to_use, headers=headers, data=form_data)
-                        
-                        if response.status_code >= 200 and response.status_code < 300:
-                            logger.info(f"SUCCESS with fallback approach! Response: {response.text}")
-                            return True
-                        else:
-                            logger.warning(f"Fallback approach failed. Status: {response.status_code}")
-                    except Exception as e:
-                        logger.warning(f"Error with fallback approach: {e}")
-            
-            logger.error("All approaches failed for OPEN_CONFIRM")
-            return False
-        except Exception as e:
-            logger.error(f"Error sending OPEN_CONFIRM to ASP.NET API: {e}")
-            return False
-    
-    def send_closed_confirm(self, message_parts, client_ip):
+    def _send_request(self, method, endpoint, data=None, timeout=10):
+        """ Sends a request to the specified API endpoint. """
+        url = f"{self.api_url}/{endpoint}"
         try:
-            id_part = message_parts[1] if len(message_parts) > 1 else ""
-            internal_id = id_part.replace("ID=", "").strip()
-            
-            profit = message_parts[2].strip() if len(message_parts) > 2 else "0"
-            current_capital = message_parts[3].strip() if len(message_parts) > 3 else "0"
-            
-            closed_at_str = message_parts[4].strip() if len(message_parts) > 4 else ""
-            try:
-                if closed_at_str and "." in closed_at_str and ":" in closed_at_str:
-                    dt = datetime.strptime(closed_at_str, "%Y.%m.%d %H:%M")
-                    closed_at = dt.strftime("%Y-%m-%dT%H:%M:%S")
-                else:
-                    closed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            except Exception as e:
-                logger.warning(f"Could not parse date '{closed_at_str}': {e}")
-                closed_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            
-            api_id = message_parts[6].strip().replace('\x00', '') if len(message_parts) > 6 else internal_id
-            
-            data = {
-                "id": api_id,
-                "profit": float(profit),
-                "currentCapital": float(current_capital),
-                "closedAt": closed_at,
-                "fromIp": client_ip
-            }
-            
-            logger.info(f"Sending CLOSED_CONFIRM to ASP.NET API: {data}")
-            
-            self.headers['Postman-Token'] = self._generate_token()
-            
-            url = f"{self.api_url}/closed-confirm"
-            
-            try:
-                logger.info(f"Trying Postman-style request: {url}")
-                payload = json.dumps(data)
-                response = requests.request("POST", url, headers=self.headers, data=payload)
-                
-                if response.status_code >= 200 and response.status_code < 300:
-                    logger.info(f"SUCCESS with Postman-style request! Response: {response.text}")
-                    return True
-                else:
-                    logger.warning(f"Postman-style request failed. Status: {response.status_code}, Response: {response.text}")
-            except Exception as e:
-                logger.warning(f"Error with Postman-style request: {e}")
-            
-            try:
-                url_with_key = f"{url}?x-api-key={self.api_key}"
-                headers_without_key = self.headers.copy()
-                if 'x-api-key' in headers_without_key:
-                    del headers_without_key['x-api-key']
-                    
-                logger.info(f"Trying Postman-style with URL param: {url_with_key}")
-                payload = json.dumps(data)
-                response = requests.request("POST", url_with_key, headers=headers_without_key, data=payload)
-                
-                if response.status_code >= 200 and response.status_code < 300:
-                    logger.info(f"SUCCESS with URL param! Response: {response.text}")
-                    return True
-                else:
-                    logger.warning(f"URL param approach failed. Status: {response.status_code}, Response: {response.text}")
-            except Exception as e:
-                logger.warning(f"Error with URL param approach: {e}")
-            
-            for api_key_location in ['header', 'url', 'both']:
-                for content_type in ['application/json', 'application/x-www-form-urlencoded']:
-                    try:
-                        headers = {
-                            'Content-Type': content_type,
-                            'User-Agent': 'PostmanRuntime/7.32.3',
-                            'Accept': '*/*',
-                            'Cache-Control': 'no-cache',
-                            'Postman-Token': self._generate_token(),
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'Connection': 'keep-alive'
-                        }
-                        
-                        url_to_use = url
-                        
-                        if api_key_location in ['header', 'both']:
-                            headers['x-api-key'] = self.api_key
-                            
-                        if api_key_location in ['url', 'both']:
-                            url_to_use = f"{url}?x-api-key={self.api_key}"
-                        
-                        logger.info(f"Fallback attempt - API key: {api_key_location}, Content-Type: {content_type}")
-                        
-                        if content_type == 'application/json':
-                            payload = json.dumps(data)
-                            response = requests.request("POST", url_to_use, headers=headers, data=payload)
-                        else:
-                            form_data = {k: str(v) for k, v in data.items()}
-                            response = requests.request("POST", url_to_use, headers=headers, data=form_data)
-                        
-                        if response.status_code >= 200 and response.status_code < 300:
-                            logger.info(f"SUCCESS with fallback approach! Response: {response.text}")
-                            return True
-                        else:
-                            logger.warning(f"Fallback approach failed. Status: {response.status_code}")
-                    except Exception as e:
-                        logger.warning(f"Error with fallback approach: {e}")
-            
-            logger.error("All approaches failed for CLOSED_CONFIRM")
-            return False
-        except Exception as e:
-            logger.error(f"Error sending CLOSED_CONFIRM to ASP.NET API: {e}")
-            return False
-    
+            payload_str = json.dumps(data) if data else None
+            response = self.session.request(method, url, data=payload_str, timeout=timeout)
+            response_text_preview = response.text[:200] if response.text else "N/A"
+            if 200 <= response.status_code < 300:
+                logger.info(f"ASP.NET API {method} {endpoint} OK ({response.status_code}). Resp: {response_text_preview}")
+                try: return True, response.json() if response.content else {}
+                except json.JSONDecodeError: logger.warning(f"ASP.NET API sent non-JSON 2xx response: {response_text_preview}"); return True, {}
+            else:
+                logger.warning(f"ASP.NET API {method} {endpoint} FAILED ({response.status_code}). Resp: {response_text_preview}")
+                return False, {"error_code": response.status_code, "details": response_text_preview}
+        except requests.exceptions.Timeout: logger.error(f"ASP.NET API {method} {endpoint} TIMEOUT."); return False, {"error": "timeout"}
+        except requests.exceptions.RequestException as e: logger.error(f"ASP.NET API {method} {endpoint} RequestException: {e}"); return False, {"error": str(e)}
+        except Exception as e: logger.error(f"Unexpected error during ASP.NET API call: {e}", exc_info=True); return False, {"error": "unexpected", "details": str(e)}
+
+    def send_open_confirm(self, message_parts, client_ip, hwid=None):
+        """ Sends trade open confirmation details to the ASP.NET API. """
+        try:
+            # MQL sends: OPEN_CONFIRM|ID=PY_xxx|TYPE|SYMBOL|SIZE|RISK_PCT|DATE_STR|TICKET_STR
+            py_trade_id, trade_type, symbol, size_str, mql_ticket_str = "", "", "", "0.0", ""
+            opened_at_mql_str = ""
+
+            for part in message_parts:
+                if part.startswith("ID="): py_trade_id = part.split("=",1)[1]
+            if len(message_parts) > 2: trade_type = message_parts[2]
+            if len(message_parts) > 3: symbol = message_parts[3]
+            if len(message_parts) > 4: size_str = message_parts[4]
+            # parts[5] is MQL risk_pct - not typically sent to backend confirm
+            if len(message_parts) > 6: opened_at_mql_str = message_parts[6]
+            if len(message_parts) > 7: mql_ticket_str = message_parts[7] # MQL Ticket ID
+
+            opened_at_iso = datetime.now(timezone.utc).isoformat()
+            if opened_at_mql_str:
+                try: opened_at_iso = pd.to_datetime(opened_at_mql_str, format='%Y.%m.%d %H:%M').tz_localize(None).tz_localize('UTC').isoformat()
+                except Exception as e: logger.warning(f"Could not parse opened_at '{opened_at_mql_str}'. Error: {e}")
+
+            payload = {"id": py_trade_id, "symbol": symbol, "type": trade_type, "size": float(size_str),
+                       "openedAt": opened_at_iso, "fromIp": client_ip or "N/A", "hwid": hwid or "N/A",
+                       "internalDllId": mql_ticket_str } # Send MQL ticket as internalDllId
+            logger.info(f"Forwarding OPEN_CONFIRM to ASP.NET: {payload}")
+            success, _ = self._send_request("POST", "open-confirm", data=payload)
+            return success
+        except Exception as e: logger.error(f"Error formatting/sending OPEN_CONFIRM: {e}", exc_info=True); return False
+
+    def send_closed_confirm(self, message_parts, client_ip, hwid=None):
+        """ Sends trade close confirmation details to the ASP.NET API. """
+        try:
+            # MQL sends: CLOSED_CONFIRM|ID=PY_xxx|PROFIT|CURRENTCAPITAL|DATE_STR|ACCOUNT_ID_MQL|TICKET_STR
+            py_trade_id, profit_str, capital_str, closed_at_mql_str, mql_ticket_str = "", "0.0", "0.0", "", ""
+
+            for part in message_parts:
+                if part.startswith("ID="): py_trade_id = part.split("=",1)[1]
+            if len(message_parts) > 2: profit_str = message_parts[2]
+            if len(message_parts) > 3: capital_str = message_parts[3]
+            if len(message_parts) > 4: closed_at_mql_str = message_parts[4]
+            # parts[5] is MQL account ID
+            if len(message_parts) > 6: mql_ticket_str = message_parts[6] # MQL Closing Deal Ticket
+
+            closed_at_iso = datetime.now(timezone.utc).isoformat()
+            if closed_at_mql_str:
+                try: closed_at_iso = pd.to_datetime(closed_at_mql_str, format='%Y.%m.%d %H:%M').tz_localize(None).tz_localize('UTC').isoformat()
+                except Exception as e: logger.warning(f"Could not parse closed_at '{closed_at_mql_str}'. Error: {e}")
+
+            payload = {"id": py_trade_id, "profit": float(profit_str), "currentCapital": float(capital_str),
+                       "closedAt": closed_at_iso, "fromIp": client_ip or "N/A", "hwid": hwid or "N/A",
+                       "internalDllId": mql_ticket_str } # Send MQL closing deal ticket
+            logger.info(f"Forwarding CLOSED_CONFIRM to ASP.NET: {payload}")
+            success, _ = self._send_request("POST", "closed-confirm", data=payload)
+            return success
+        except Exception as e: logger.error(f"Error formatting/sending CLOSED_CONFIRM: {e}", exc_info=True); return False
+
     def check_health(self):
-        try:
-            self.headers['Postman-Token'] = self._generate_token()
-            
-            url = f"{self.api_url}/health"
-            
-            logger.info(f"Health check: {url}")
-            response = requests.request("GET", url, headers=self.headers)
-            
-            if response.status_code == 200:
-                logger.info(f"Health check successful with Postman headers")
-                return True
-                
-            url_with_key = f"{url}?x-api-key={self.api_key}"
-            headers_without_key = self.headers.copy()
-            if 'x-api-key' in headers_without_key:
-                del headers_without_key['x-api-key']
-                
-            logger.info(f"Health check with URL param: {url_with_key}")
-            response = requests.request("GET", url_with_key, headers=headers_without_key)
-            
-            if response.status_code == 200:
-                logger.info(f"Health check successful with URL param")
-                return True
-            
-            simple_headers = {
-                'Accept': '*/*',
-                'x-api-key': self.api_key
-            }
-            
-            logger.info(f"Health check with simple headers: {url}")
-            response = requests.request("GET", url, headers=simple_headers)
-            
-            if response.status_code == 200:
-                logger.info(f"Health check successful with simple headers")
-                return True
-                
-            logger.error("Health check failed with all approaches")
-            return False
-        except Exception as e:
-            logger.error(f"Health check failed: {e}")
-            return False
+        """ Checks the health endpoint of the ASP.NET API. """
+        logger.info(f"Checking ASP.NET API health at {self.api_url}/health")
+        success, response_data = self._send_request("GET", "health", timeout=5)
+        if success: logger.info(f"ASP.NET API Health check OK: {response_data}")
+        else: logger.error(f"ASP.NET API Health check FAILED. Details: {response_data}")
+        return success
 
+
+# --- Main Trading Logic Class ---
 class LivePipelineTrader:
+    """ Orchestrates data buffering, feature engineering, model prediction, and trade signaling. """
     def __init__(self, model_bundle_path):
         self.model_bundle = self.load_model(model_bundle_path)
-        
+        if not self.model_bundle:
+            logger.critical(f"Halting: Model bundle '{model_bundle_path}' could not be loaded.")
+            raise SystemExit(f"Model bundle load failed: {model_bundle_path}")
+
+        # --- Model and Parameters ---
         self.model = self.model_bundle["model"]
         self.bin_edges = self.model_bundle["bin_edges"]
-        self.timeframe = self.model_bundle["timeframe"]
-        self.prob_threshold = self.model_bundle.get("prob_threshold", 0.65)
-        self.features_to_use = self.model_bundle.get("features", None)
-        
-        logger.info(f"Model loaded, timeframe={self.timeframe}, prob_threshold={self.prob_threshold}")
-        if self.features_to_use:
-            logger.info(f"Model uses {len(self.features_to_use)} specific features")
-        
+        self.timeframe = self.model_bundle["timeframe"] # e.g., "M1", "M5"
+        self.prob_threshold = self.model_bundle.get("prob_threshold", 0.65) # Confidence threshold
+        self.features_to_use = self.model_bundle.get("features", None) # List of feature names
+        logger.info(f"Model loaded. TF: {self.timeframe}, ProbThresh: {self.prob_threshold}, Features: {'Specific' if self.features_to_use else 'Auto'}")
+
+        # --- Data and State ---
         self.news_events = load_high_impact_news_csv(HIGH_IMPACT_NEWS_PATH)
-        
-        self.data_buffer = LiveDataBuffer(max_size=BUFFER_SIZE, news_events=self.news_events)
-        
-        self.active_trades = []
-        
-        self.account_risk_map = {
-            125: 5.0,
-            200: 2.0,
-        }
-        
-        self.allowed_devices = {}
-        
+        self.data_buffer = LiveDataBuffer(BUFFER_SIZE, self.news_events)
+        self.active_trades_lock = threading.Lock()
+        self.active_trades = [] # Trades initiated by this Python instance {id: ..., api_id:..., type:..., symbol:..., etc.}
+        self.allowed_devices = {} # Shared dict: {hwid: accountId} - populated by API START command
+
+        # --- Communication Components ---
         self.socket_server = DllSocketServer(self, HOST, SOCKET_PORT, self.allowed_devices)
-        self.socket_server.start()
-        
+        self.socket_server.start() # Start listening for DLL connections
         self.asp_net_client = AspNetApiClient(ASPNET_API_URL, API_KEY)
-        
-        ApiRequestHandler.pipeline_trader = self
-        api_server_address = (HOST, API_PORT)
-        self.api_httpd = HTTPServer(api_server_address, ApiRequestHandler)
-        logger.info(f"API Server listening on port {API_PORT}")
-        
-        api_server_thread = threading.Thread(target=self.api_httpd.serve_forever, daemon=True)
+        ApiRequestHandler.pipeline_trader = self # Make instance available to API handlers
+        BarsRequestHandler.pipeline_trader = self # Make instance available to Bar handlers
+
+        # --- API Server ---
+        self.api_httpd = HTTPServer((HOST, API_PORT), ApiRequestHandler)
+        logger.info(f"API Command Server listening on {HOST}:{API_PORT}")
+        api_server_thread = threading.Thread(target=self.api_httpd.serve_forever, daemon=True, name="ApiServerThread")
         api_server_thread.start()
-        
-        self.asp_net_client.check_health()
+
+        # Initial health check for backend
+        if not self.asp_net_client.check_health():
+            logger.warning("Initial ASP.NET API health check failed. Check connectivity and API key.")
 
     def load_model(self, model_path):
+        """ Loads the trained model bundle from a file. """
         try:
+            if not os.path.exists(model_path):
+                logger.error(f"Model file not found: {model_path}")
+                return None
             model_bundle = joblib.load(model_path)
-            logger.info(f"Successfully loaded model from {model_path}")
+            # Validate essential keys
+            required_keys = ["model", "bin_edges", "timeframe"]
+            if not all(key in model_bundle for key in required_keys):
+                logger.error(f"Model bundle from '{model_path}' is missing required key(s): {[k for k in required_keys if k not in model_bundle]}")
+                return None
+            logger.info(f"Successfully loaded and validated model bundle from {model_path}")
             return model_bundle
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
-            raise
+            logger.error(f"Failed to load model from {model_path}: {e}", exc_info=True)
+            return None
 
     def get_trade_info(self, trade_id):
-        for trade in self.active_trades:
-            if trade["id"] == trade_id:
-                return trade
-        return None
-    
-    def get_device_trades(self, client_ip=None):
-        if hasattr(self, 'socket_server') and self.socket_server:
-            return self.socket_server.get_device_trades(client_ip)
-        return {}
-        
-    def on_position_closed(self, trade_id, message_type=None):
-        logger.info(f"Position closed: Trade ID={trade_id} via {message_type if message_type else 'unknown'} message")
-        
-        for t in self.active_trades:
-            if t["id"] == trade_id:
-                self.active_trades.remove(t)
-                logger.info(f"Trade ID={trade_id} removed from active_trades")
-                return
-        
-        if message_type != "CLOSED_CONFIRM":
-            logger.warning(f"Trade ID={trade_id} not found in active_trades")
-        else:
-            logger.info(f"Trade ID={trade_id} confirmation received, trade was already removed")
+        """ Retrieves info about a trade initiated by this Python instance. """
+        with self.active_trades_lock:
+            # Find trade by ID (ensure type consistency, using string comparison)
+            return next((trade.copy() for trade in self.active_trades if str(trade.get("id")) == str(trade_id)), None)
 
-    def check_existing_trade_conflict(self, signal_type, current_price):
-        """
-        Check if a new trade signal conflicts with existing active trades
-        
-        Args:
-            signal_type: 1 for buy, -1 for sell
-            current_price: current market price
-            
-        Returns:
-            bool: True if there's a conflict, False otherwise
-        """
-        signal_direction = "BUY" if signal_type == 1 else "SELL"
-        
-        for trade in self.active_trades:
-            if (trade["type"] == "BUY" and signal_type == 1) or (trade["type"] == "SELL" and signal_type == -1):
-                logger.info(f"New {signal_direction} signal conflicts with existing {trade['type']} trade ID={trade['id']}")
-                return True
-                
-            if trade["type"] == "BUY":
-                trade_low = trade["entry_price"] - (trade["take_profit"] - trade["entry_price"]) * 1.5
-                if current_price < trade["take_profit"] and current_price > trade_low:
-                    logger.info(f"New {signal_direction} signal within price range of existing BUY trade ID={trade['id']}")
-                    return True
-            else:
-                trade_high = trade["entry_price"] + (trade["entry_price"] - trade["take_profit"]) * 1.5
-                if current_price > trade["take_profit"] and current_price < trade_high:
-                    logger.info(f"New {signal_direction} signal within price range of existing SELL trade ID={trade['id']}")
-                    return True
-                    
-        return False
+    def get_device_trades(self, hwid=None):
+        """ Retrieves tracked trades associated with a specific HWID (or all). """
+        return self.socket_server.get_device_trades(hwid)
 
-    def check_tp_sl_hits(self, current_price):
-        """
-        Check if any active trades have hit TP or SL
-        
-        Args:
-            current_price: current market price
-        """
-        trades_to_close = []
-        
-        for trade in self.active_trades:
-            tp_hit = False
-            sl_hit = False
-            reason = ""
-            
-            if trade["type"] == "BUY":
-                sl_price = trade["entry_price"] - (trade["take_profit"] - trade["entry_price"]) * 1.5
-                if current_price >= trade["take_profit"]:
-                    tp_hit = True
-                    reason = "TP"
-                elif current_price <= sl_price:
-                    sl_hit = True
-                    reason = "SL"
+    def on_position_closed(self, trade_id, reason="UNKNOWN"):
+        """ Handles notification that a position associated with a trade ID has closed. """
+        logger.info(f"Position close event received for Trade ID = {trade_id}, Reason: {reason}")
+        with self.active_trades_lock:
+            initial_len = len(self.active_trades)
+            # Remove the trade from the list of active Python-initiated trades
+            self.active_trades = [t for t in self.active_trades if str(t.get("id")) != str(trade_id)]
+            if len(self.active_trades) < initial_len:
+                logger.info(f"Trade ID={trade_id} removed from Python's active_trades list (reason: {reason}).")
             else:
-                sl_price = trade["entry_price"] + (trade["entry_price"] - trade["take_profit"]) * 1.5
-                if current_price <= trade["take_profit"]:
-                    tp_hit = True
-                    reason = "TP"
-                elif current_price >= sl_price:
-                    sl_hit = True
-                    reason = "SL"
+                logger.info(f"Trade ID={trade_id} (closed via {reason}) was not found in Python's active_trades list (might be API trade or already removed by local TP/SL).")
+
+
+    def check_existing_trade_conflict(self, signal_type, symbol="XAUUSD"):
+        """ Checks if a new signal conflicts with current Python-initiated trades. """
+        direction = "BUY" if signal_type == 1 else "SELL"
+        with self.active_trades_lock:
+            for trade in self.active_trades:
+                if trade.get("symbol") == symbol and trade.get("type") == direction:
+                    logger.info(f"Signal conflict: Existing {direction} trade ID={trade.get('id')} for {symbol}.")
+                    return True # Conflict: Already have a trade of the same type for the symbol
+        return False # No conflict found
+
+    def check_tp_sl_hits(self, current_price, symbol="XAUUSD"):
+        """
+        Checks if any Python-initiated trades hit their TP/SL levels.
+        If a hit is detected, the trade is removed from Python's active list,
+        and a CLOSE signal is sent to the DLL.
+        """
+        trades_to_signal_close_cmd = [] # Stores tuples (trade_id, reason, trade_type_str, trade_symbol, close_price_detected)
+        trade_ids_to_remove_from_active_list = []
+
+        with self.active_trades_lock:
+            for trade in self.active_trades:
+                # Check only trades for the relevant symbol (of the current bar)
+                # Note: If supporting multiple symbols, 'symbol' param to this function is key
+                if trade.get("symbol") != symbol:
+                    continue
+
+                tp_hit, sl_hit, reason_for_close = False, False, ""
+                trade_type = trade.get("type")
+                take_profit = trade.get("take_profit")
+                stop_loss = trade.get("stop_loss") # This might be None if MQL calculates SL
+
+                if trade_type == "BUY":
+                    if take_profit is not None and current_price >= take_profit:
+                        tp_hit, reason_for_close = True, "TP_HIT_PY"
+                    elif stop_loss is not None and current_price <= stop_loss:
+                        sl_hit, reason_for_close = True, "SL_HIT_PY"
+                elif trade_type == "SELL":
+                    if take_profit is not None and current_price <= take_profit:
+                        tp_hit, reason_for_close = True, "TP_HIT_PY"
+                    elif stop_loss is not None and current_price >= stop_loss:
+                        sl_hit, reason_for_close = True, "SL_HIT_PY"
+
+                if tp_hit or sl_hit:
+                    logger.info(f"Python TP/SL Check: Trade ID={trade['id']} ({trade_type} {trade.get('symbol')}) marked for immediate local removal and DLL close signal due to {reason_for_close} at price {current_price:.5f}.")
+                    trade_ids_to_remove_from_active_list.append(trade["id"])
+                    # Store all necessary info for sending the command later
+                    trades_to_signal_close_cmd.append((trade["id"], reason_for_close, trade_type, trade.get("symbol"), current_price))
             
-            if tp_hit or sl_hit:
-                trades_to_close.append((trade["id"], reason))
-        
-        for trade_id, reason in trades_to_close:
-            msg = f"CLOSE|ID={trade_id}|{reason}"
-            logger.info(f"Closing trade ID={trade_id}, reason={reason}")
-            self.send_signal(msg)
+            # Now, remove the identified trades from the active list
+            if trade_ids_to_remove_from_active_list:
+                initial_len = len(self.active_trades)
+                self.active_trades = [t for t in self.active_trades if t["id"] not in trade_ids_to_remove_from_active_list]
+                removed_count = initial_len - len(self.active_trades)
+                if removed_count > 0:
+                    logger.info(f"Removed {removed_count} trade(s) from Python's active_trades list based on local TP/SL detection.")
+
+        # Send CLOSE signals outside the lock
+        for trade_id, reason, trade_type_str, trade_symbol, close_price_detected in trades_to_signal_close_cmd:
+            close_msg = f"CLOSE|ID={trade_id}|REASON={reason}|SYMBOL={trade_symbol}"
+            logger.info(f"Python TP/SL: Signaling close for {trade_type_str} ID={trade_id} ({trade_symbol}) due to {reason} at price {close_price_detected:.5f}. Sending: {close_msg}")
+            self.send_signal(close_msg)
+
 
     def on_new_bar(self, bar_dict):
-        logger.debug(f"New bar received: {bar_dict}")
+        """ Main logic triggered by new bar data. """
         self.data_buffer.append(bar_dict)
-        
-        if len(self.data_buffer.buffer) < 200:
-            logger.debug(f"Buffer too small ({len(self.data_buffer.buffer)}), waiting for more data")
+        # Need enough data for longest lookback period in feature engineering (e.g., SMA 200)
+        if len(self.data_buffer.buffer) < 205: # Increased slightly for safety
+            # logger.debug(f"Buffer size {len(self.data_buffer.buffer)} < 205, waiting...")
             return
-        
+
         df_buf = self.data_buffer.to_dataframe()
-        df_feat = engineer_features(df_buf)
-        logger.debug(f"Data buffer size={len(df_buf)}, after feature engineering shape={df_feat.shape}")
-        
-        df_feat.dropna(inplace=True)
-        if df_feat.empty:
-            logger.warning("Empty DataFrame after dropping NaN values")
+        if df_buf.empty: return
+
+        try:
+            df_feat = engineer_features(df_buf.copy())
+            if df_feat.empty: # Handle case where feature eng returns empty (e.g., all NaNs initially)
+                # logger.debug("DataFrame empty after feature engineering, likely insufficient data.")
+                return
+        except Exception as e:
+            logger.error(f"Feature engineering failed: {e}", exc_info=True)
             return
-        
+
         last_row = df_feat.iloc[-1]
         current_price = last_row["close"]
-        
-        self.check_tp_sl_hits(current_price)
-        
-        swing_high_idx, swing_high_bar = find_most_recent_swing_high(df_feat, lookback=75)
-        swing_low_idx, swing_low_bar = find_most_recent_swing_low(df_feat, lookback=75)
-        
-        current_close = last_row["close"]
+        current_ts_utc = last_row["timestamp"] # This is already UTC and aware
 
-        sell_condition_met = False
-        buy_condition_met = False
-        resistance_trigger_level = None
-        support_trigger_level = None
-
-        logger.info("==== TRADE ENTRY CONDITIONS ====")
-
-        if swing_high_bar is not None:
-            resistance_trigger_level = swing_high_bar['high']
-            sell_condition_met = current_close > resistance_trigger_level
-            time_diff = last_row["timestamp"] - swing_high_bar["timestamp"]
-            minutes_ago = time_diff.total_seconds() / 60
-
-            logger.info(
-                f"SELL ENTRY CONDITION: Price must be ABOVE {resistance_trigger_level:.2f} (HIGH of 5-bar swing high from {int(minutes_ago)} mins ago)")
-            logger.info(
-                f"Current price: {current_close:.2f} | Condition met: {sell_condition_met}")
-        else:
-            logger.info(
-                "SELL ENTRY CONDITION: No recent 5-bar swing high found - cannot generate sell signals")
-
-        if swing_low_bar is not None:
-            support_trigger_level = swing_low_bar['low']
-            buy_condition_met = current_close < support_trigger_level
-            time_diff = last_row["timestamp"] - swing_low_bar["timestamp"]
-            minutes_ago = time_diff.total_seconds() / 60
-
-            logger.info(
-                f"BUY ENTRY CONDITION: Price must be BELOW {support_trigger_level:.2f} (LOW of 5-bar swing low from {int(minutes_ago)} mins ago)")
-            logger.info(f"Current price: {current_close:.2f} | Condition met: {buy_condition_met}")
-        else:
-            logger.info(
-                "BUY ENTRY CONDITION: No recent 5-bar swing low found - cannot generate buy signals")
-
-
-        logger.info("===============================")
-        
+        # --- Log Processed Bar Details ---
         try:
-            logger.info(
-                "Bar: time=%s open=%.2f high=%.2f low=%.2f close=%.2f vol=%.1f rsi_14=%.2f until_invalid=%d",
-                last_row["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
-                last_row["open"],
-                last_row["high"],
-                last_row["low"],
-                last_row["close"],
-                last_row["tick_volume"],
-                last_row["rsi_14"],
-                int(last_row["until_invalid"])
+            # Use .get with defaults for robustness if a feature is missing
+            log_msg = (
+                f"Bar: time={last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')} "
+                f"open={last_row.get('open', 0.0):.5f} high={last_row.get('high', 0.0):.5f} "
+                f"low={last_row.get('low', 0.0):.5f} close={current_price:.5f} "
+                f"vol={last_row.get('tick_volume', 0.0):.1f} " # Use tick_volume if present
+                f"rsi_14={last_row.get('rsi_14', float('nan')):.2f} "
+                f"until_invalid={int(last_row.get('until_invalid', -1))}"
             )
-            
-            if swing_high_bar is not None:
-                logger.info(f"Last swing HIGH: time={swing_high_bar['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}, "
-                          f"O={swing_high_bar['open']:.2f}, H={swing_high_bar['high']:.2f}, "
-                          f"L={swing_high_bar['low']:.2f}, C={swing_high_bar['close']:.2f}")
-            
-            if swing_low_bar is not None:
-                logger.info(f"Last swing LOW: time={swing_low_bar['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}, "
-                          f"O={swing_low_bar['open']:.2f}, H={swing_low_bar['high']:.2f}, "
-                          f"L={swing_low_bar['low']:.2f}, C={swing_low_bar['close']:.2f}")
-                
-        except KeyError as e:
-            logger.error(f"Missing key in data row: {e}")
-        
-        if last_row['until_invalid'] == 0:
-            logger.info("Trading during invalid period (news or maintenance), but continuing to generate signals")
-        
-        if self.features_to_use:
-            missing_features = []
-            for col in self.features_to_use:
-                if col not in df_feat.columns:
-                    missing_features.append(col)
-            
-            if missing_features:
-                logger.error(f"Missing required features: {missing_features}")
-                return
-            
-            X_last = pd.DataFrame(last_row[self.features_to_use]).T.astype(float)
-        else:
-            features_to_use = [c for c in df_feat.columns if c not in ['timestamp', 'until_invalid']]
-            X_last = pd.DataFrame(last_row[features_to_use]).T.astype(float)
-        
-        if X_last.isnull().any().any():
-            logger.warning("NaN values in input features")
+            logger.info(log_msg)
+        except Exception as e:
+            logger.warning(f"Could not log bar details: {e}")
+        # --- End Logging ---
+
+        # --- Check for TP/SL hits on existing Python trades ---
+        self.check_tp_sl_hits(current_price, symbol="XAUUSD") # Assuming XAUUSD for now
+
+        # --- Check if trading is allowed based on news/maintenance ---
+        minutes_to_invalid = last_row.get('until_invalid', 9999)
+        if minutes_to_invalid == 0:
+            # logger.info(f"Bar at {current_ts_utc}: Currently in invalid period (until_invalid=0). No new trades.")
+            return # Don't open new trades during invalid periods
+        # Add buffer time before event? e.g. 5 minutes
+        buffer_minutes_before_event = 5
+        if minutes_to_invalid <= buffer_minutes_before_event:
+            logger.info(f"Bar at {current_ts_utc}: Approaching invalid period in {minutes_to_invalid}m (buffer {buffer_minutes_before_event}m). No new trades.")
             return
-            
-        proba = self.model.predict_proba(X_last)[0]
-        logger.debug(f"Model prediction shape={proba.shape}")
-        
-        price_to_sma_50 = last_row['price_to_sma_50']
-        
-        signal, w_pos, w_neg, tp = aggregate_signal(
-            proba,
-            last_row['close'],
-            self.bin_edges,
-            self.model.classes_,
-            self.prob_threshold,
-            price_to_sma_50
+
+        # --- Prepare features for model prediction ---
+        features_for_model = self.features_to_use
+        if not features_for_model: # Fallback if not defined in bundle
+            features_for_model = [c for c in df_feat.columns if c not in ['timestamp', 'until_invalid', 'open', 'high', 'low', 'volume', 'tick_volume']]
+
+        missing_model_features = [f for f in features_for_model if f not in last_row.index]
+        if missing_model_features:
+            logger.error(f"Missing features required by model: {missing_model_features}. Available: {list(last_row.index)}. Skipping prediction.")
+            return
+
+        # Ensure data types are correct (float)
+        X_last = pd.DataFrame([last_row[features_for_model].to_dict()]).astype(float)
+        if X_last.isnull().values.any():
+            logger.warning(f"NaN values detected in features for prediction: {X_last.columns[X_last.isnull().any()].tolist()}. Skipping.")
+            return
+
+        # --- Get Model Prediction ---
+        try:
+            proba = self.model.predict_proba(X_last)[0] # Get probabilities for the last row
+        except Exception as e:
+            logger.error(f"Model predict_proba error: {e}", exc_info=True)
+            return
+
+        # --- Aggregate Signal and Filter ---
+        price_to_sma50 = last_row.get('price_to_sma_50', 0.0) # Get trend context
+        model_signal, expected_pos_mag, expected_neg_mag, _ = aggregate_signal(
+            proba, current_price, self.bin_edges, self.model.classes_, self.prob_threshold, price_to_sma50
         )
-        logger.debug(f"Signal={signal}, w_pos={w_pos}, w_neg={w_neg}, tp={tp}, price_to_sma_50={price_to_sma_50}")
 
-        if signal != 0:
-            try:
-                if signal == -1:
-                    if resistance_trigger_level is None:
-                        logger.info(f"⚠️ SELL signal invalidated: No recent 5-bar swing high found")
-                        signal = 0
-                        tp = None
-                    elif not sell_condition_met:
-                        logger.info(
-                            f"⚠️ SELL signal invalidated: Close {current_close:.2f} is NOT ABOVE swing high's HIGH {resistance_trigger_level:.2f}")
-                        signal = 0
-                        tp = None
-                    else:
-                        logger.info(
-                            f"✅ IDEAL SELL signal confirmed: Close {current_close:.2f} is ABOVE swing high's HIGH {resistance_trigger_level:.2f}")
-                elif signal == 1:
-                    if support_trigger_level is None:
-                        logger.info(f"⚠️ BUY signal invalidated: No recent 5-bar swing low found")
-                        signal = 0
-                        tp = None
-                    elif not buy_condition_met:
-                        logger.info(
-                            f"⚠️ BUY signal invalidated: Close {current_close:.2f} is NOT BELOW swing low's LOW {support_trigger_level:.2f}")
-                        signal = 0
-                        tp = None
-                    else:
-                        logger.info(
-                            f"✅ IDEAL BUY signal confirmed: Close {current_close:.2f} is BELOW swing low's LOW {support_trigger_level:.2f}")
-            except Exception as e:
-                logger.warning(f"Error in swing high/low filter, continuing with original signal: {e}")
+        final_trade_signal = model_signal # Use the filtered signal directly
 
-        if signal == 0:
-            logger.info("No trade signal generated")
+        if final_trade_signal == 0:
+            # logger.debug(f"No trade signal generated after aggregation/filtering at {current_ts_utc}.")
+            return # No trade signal
+
+        # --- Check Trade Conflict ---
+        if self.check_existing_trade_conflict(final_trade_signal, symbol="XAUUSD"):
+            logger.info(f"Signal ({'BUY' if final_trade_signal == 1 else 'SELL'}) conflicts with existing Python trade. No new trade placed.")
             return
-        
-        if self.check_existing_trade_conflict(signal, current_price):
-            logger.info(f"Trade signal invalidated due to conflict with existing trades")
-            return
-        
-        trade_id = len(self.active_trades) + 1
-        ttype = "BUY" if signal == 1 else "SELL"
-        
-        acct_id = next(iter(self.account_risk_map), 125)
-        risk_percent = self.account_risk_map.get(acct_id, 1.0)
-        
-        if signal == 1:
-            take_profit = current_price + w_pos
-            stop_loss = current_price - (w_pos * 1.5)
-        else:
-            take_profit = current_price - w_neg
-            stop_loss = current_price + (w_neg * 1.5)
-        
-        trade_info = {
-            "id": trade_id,
-            "type": ttype,
-            "entry_ts": last_row['timestamp'],
-            "entry_price": current_price,
-            "acct_id": acct_id,
-            "risk": risk_percent,
-            "weighted_pos_move": w_pos,
-            "weighted_neg_move": w_neg,
-            "take_profit": take_profit,
-            "stop_loss": stop_loss,
-            "until_invalid": last_row['until_invalid']
+
+        # --- Prepare and Send Trade Signal ---
+        trade_id_py = f"PY_{int(time.time()*1000)}" # Unique Python-generated ID
+        trade_type_str = "BUY" if final_trade_signal == 1 else "SELL"
+        symbol = "XAUUSD" # Assuming XAUUSD
+
+        # Calculate TP based on model expectation. SL is calculated by MQL EA.
+        if final_trade_signal == 1: # BUY
+            tp_price = current_price + expected_pos_mag
+            sl_price = None # MQL calculates SL
+        else: # SELL
+            tp_price = current_price - expected_neg_mag
+            sl_price = None # MQL calculates SL
+
+        # Store trade details initiated by Python
+        trade_package = {
+            "id": trade_id_py, "api_id": trade_id_py, # Use same ID for API mapping
+            "type": trade_type_str, "symbol": symbol,
+            "entry_ts_utc": current_ts_utc.isoformat(), "entry_price": round(current_price, 5),
+            "take_profit": round(tp_price, 5),
+            "stop_loss": sl_price, # Store None as MQL calculates it
+            "minutes_until_invalid": int(minutes_to_invalid)
+            # "pending_close_signal_sent" was removed
         }
-        self.active_trades.append(trade_info)
-        
+        with self.active_trades_lock:
+            self.active_trades.append(trade_package)
+
         logger.info(
-            "New trade: %s ID=%d, ACCT=%d, RISK=%.1f%%, Price=%.2f, TP=%.2f, SL=%.2f, until_invalid=%d",
-            ttype, trade_id, acct_id, risk_percent, current_price, take_profit, stop_loss, int(last_row['until_invalid'])
+            f"+++ NEW PYTHON TRADE ({current_ts_utc.strftime('%Y-%m-%d %H:%M:%S')}) +++: {trade_type_str} ID={trade_id_py} ({symbol}), "
+            f"Entry={current_price:.5f}, TP={tp_price:.5f} (SL calculated by EA), MinsToInvalid={minutes_to_invalid}"
         )
-        
-        msg = f"OPEN|ID={trade_id}|{ttype}|XAUUSD|TP={take_profit:.2f}|MinutesUntilInvalid={int(last_row['until_invalid'])}"
-        logger.info(f"Sending signal: {msg}")
-        
+
+        # Construct message for MQL4 DLL (matching its expected format)
+        # OPEN|ID=<py_id>|<TYPE>|<SYMBOL>|TP=<tp_val>|MINUTESUNTILINVALID=<val>|API_ID=<py_id>
+        msg_to_dll = (f"OPEN|ID={trade_id_py}|{trade_type_str}|{symbol}"
+                      f"|TP={tp_price:.5f}"
+                      f"|MINUTESUNTILINVALID={int(minutes_to_invalid)}"
+                      f"|API_ID={trade_id_py}") # Include API_ID for confirmation mapping
+
+        self.send_signal(msg_to_dll) # Send encrypted signal via socket server
+
+    def send_signal(self, msg: str):
+        """ Sends a command message to the DLL Socket Server to broadcast. """
+        # logger.info(f"Broadcasting command to DLLs: {msg}") # Logging done within socket server send now
         self.socket_server.send_signal_to_clients(msg)
 
-    def send_signal(self, msg):
-        logger.info(f"Sending signal: {msg}")
-        self.socket_server.send_signal_to_clients(msg)
-    
-    def forward_to_aspnet(self, msg, client_ip=None):
+    def forward_to_aspnet(self, msg: str, client_ip=None, hwid=None):
+        """ Forwards messages received from DLLs (like confirmations) to the ASP.NET API. """
         message_parts = msg.split("|")
-        message_type = message_parts[0]
-        
-        if message_type == "OPEN_CONFIRM":
-            self.asp_net_client.send_open_confirm(message_parts, client_ip)
-        
-        elif message_type == "CLOSED_CONFIRM":
-            self.asp_net_client.send_closed_confirm(message_parts, client_ip)
-        
-        else:
-            logger.info(f"Message type {message_type} not forwarded to ASP.NET API")
+        message_type = message_parts[0] if message_parts else ""
 
+        if message_type == "OPEN_CONFIRM":
+            logger.info(f"ASP.NET Forward: Received OPEN_CONFIRM from HWID {hwid}.")
+            self.asp_net_client.send_open_confirm(message_parts, client_ip, hwid)
+        elif message_type == "CLOSED_CONFIRM":
+            logger.info(f"ASP.NET Forward: Received CLOSED_CONFIRM from HWID {hwid}.")
+            self.asp_net_client.send_closed_confirm(message_parts, client_ip, hwid)
+        elif message_type == "EDIT_CONFIRM":
+            logger.info(f"ASP.NET Forward: Received EDIT_CONFIRM from HWID {hwid}. (No specific endpoint call defined).")
+            # Add call to self.asp_net_client.send_edit_confirm(...) if needed
+        # else: logger.debug(f"Msg type '{message_type}' from HWID {hwid} not forwarded to ASP.NET.")
+
+    def shutdown(self):
+        """ Initiates shutdown sequence for all components. """
+        logger.info("LivePipelineTrader shutdown initiated...")
+        # Stop DLL Socket Server first to prevent new connections/messages
+        if hasattr(self, 'socket_server') and self.socket_server:
+            self.socket_server.stop()
+
+        # Shutdown API HTTP Server
+        if hasattr(self, 'api_httpd') and self.api_httpd:
+            logger.info("Stopping API Command Server...")
+            try:
+                # Shutdown must be from a different thread, but serve_forever runs in one.
+                # Closing the server socket might be enough for daemon threads.
+                threading.Thread(target=self.api_httpd.shutdown, daemon=True).start()
+                self.api_httpd.server_close() # Close socket immediately
+            except Exception as e:
+                logger.error(f"Error shutting down API HTTPD: {e}")
+        logger.info("LivePipelineTrader shutdown sequence completed.")
+
+
+# --- Main Execution ---
 def main():
-    logger.info("Starting LivePipeline trading system...")
-    
+    """ Starts the trading system components. """
+    logger.info("Starting LivePipeline Trading System...")
+    pipeline_trader = None
+    bars_data_httpd = None
+
     try:
+        # Initialize the main trader logic (loads model, starts DLL server, API client)
         pipeline_trader = LivePipelineTrader(MODEL_BUNDLE_PATH)
-        
-        BarsRequestHandler.pipeline_trader = pipeline_trader
-        bars_server_address = (HOST, HTTP_PORT)
-        bars_httpd = HTTPServer(bars_server_address, BarsRequestHandler)
-        logger.info(f"Bars HTTP Server listening on port {HTTP_PORT}")
-        
-        bars_server_thread = threading.Thread(target=bars_httpd.serve_forever, daemon=True)
+
+        # Start the HTTP server for receiving bar data
+        BarsRequestHandler.pipeline_trader = pipeline_trader # Link handler to trader instance
+        bars_data_httpd = HTTPServer((HOST, HTTP_PORT), BarsRequestHandler)
+        logger.info(f"Bars Data HTTP Server listening on {HOST}:{HTTP_PORT}")
+        bars_server_thread = threading.Thread(target=bars_data_httpd.serve_forever, daemon=True, name="BarsServerThread")
         bars_server_thread.start()
-        
-        logger.info("All servers started. Press Ctrl+C to shutdown...")
-        
+
+        logger.info("All core services started. System is live. Press Ctrl+C to shutdown.")
+        # Keep main thread alive while daemon threads run
         while True:
-            time.sleep(1)
+            time.sleep(3600) # Wake up occasionally or just wait for interrupt
+
+    except SystemExit as se: # Raised by LivePipelineTrader init on critical failure
+        logger.critical(f"System Exit Triggered: {se}. Shutting down.")
     except KeyboardInterrupt:
-        logger.info("Shutting down servers...")
-        if hasattr(pipeline_trader, 'api_httpd'):
-            pipeline_trader.api_httpd.shutdown()
-        bars_httpd.shutdown()
+        logger.info("Ctrl+C received. Initiating graceful shutdown...")
+    except FileNotFoundError as fnf_e:
+        logger.critical(f"Essential file not found during startup: {fnf_e}. System cannot start.")
+    except OSError as os_e:
+        # Port binding errors are caught earlier, this might be other OS issues
+        logger.critical(f"OS Error during startup: {os_e}. System cannot start.")
     except Exception as e:
-        logger.error(f"Error in main function: {e}")
-        raise
+        logger.critical(f"Unhandled critical error in main function: {e}", exc_info=True)
+    finally:
+        # --- Shutdown Sequence ---
+        logger.info("System shutdown sequence commencing...")
+        # Shutdown trader logic (stops DLL server, tries to stop API server)
+        if pipeline_trader:
+            pipeline_trader.shutdown()
+
+        # Shutdown the bars data server
+        if bars_data_httpd:
+            logger.info("Stopping Bars Data HTTP Server...")
+            try:
+                # Shutdown must be from a different thread for serve_forever
+                threading.Thread(target=bars_data_httpd.shutdown, daemon=True).start()
+                bars_data_httpd.server_close() # Close socket
+            except Exception as e:
+                logger.error(f"Error shutting down Bars Data HTTPD: {e}")
+
+        # Check for remaining threads (useful for debugging hangs)
+        time.sleep(1) # Give threads a moment to exit
+        active_threads = threading.enumerate()
+        main_thread = threading.current_thread()
+        other_threads = [t.name for t in active_threads if t != main_thread]
+        if other_threads:
+            logger.info(f"Remaining active threads: {other_threads}")
+        else:
+            logger.info("All main threads appear to have stopped.")
+
+        logger.info("System shutdown process complete.")
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Tiamat.Core.Services.Interfaces;
-using Tiamat.Utility;
-using Tiamat.Utility.Services;
+using Tiamat.Core;
 using Tiamat.WebApp.Models.Tiamat.WebApp.ViewModels.Python;
 
 namespace Tiamat.WebApp.Controllers
@@ -33,10 +32,10 @@ namespace Tiamat.WebApp.Controllers
             try
             {
 
-                var account = await _accountService.GetAccountByIpAsync(request.FromIp);
+                var account = await _accountService.GetAccountByHwidAsync(request.FromHwid);
                 if (account == null)
                 {
-                    _logger.LogError("Account with IP {FromIp} not found.", request.FromIp);
+                    _logger.LogError("Account with HWID {FromHwid} not found.", request.FromHwid);
                     return BadRequest(new { error = "Account not found" });
                 }
 
@@ -68,7 +67,7 @@ namespace Tiamat.WebApp.Controllers
                     request.Profit,
                     request.CurrentCapital,
                     request.ClosedAt,
-                    request.FromIp);
+                    request.FromHwid);
 
                 return Ok(new { status = "success" });
             }
@@ -90,7 +89,7 @@ namespace Tiamat.WebApp.Controllers
         {
             try
             {
-                var response = await _pythonApiService.StartAccountAsync(request.AccountId, request.Ip);
+                var response = await _pythonApiService.StartAccountAsync(request.AccountId, request.Hwid);
                 if (response.IsSuccess)
                 {
                     return Ok(new { status = "success" });
