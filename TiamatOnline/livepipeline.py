@@ -69,14 +69,12 @@ def calc_until_invalid(
     if news_events is None:
         news_events = []
     
-    # Ensure bar_ts is UTC
     if bar_ts.tzinfo is None:
         logger.warning(f"calc_until_invalid received naive timestamp: {bar_ts}. Assuming UTC.")
         bar_ts = bar_ts.replace(tzinfo=timezone.utc)
     else:
         bar_ts = bar_ts.astimezone(timezone.utc)
 
-    # Ensure news_events are UTC and sorted (though load_high_impact_news_csv already sorts)
     processed_news_events = []
     for ne_orig in news_events:
         if ne_orig.tzinfo is None:
@@ -86,30 +84,24 @@ def calc_until_invalid(
         processed_news_events.append(ne_utc)
     processed_news_events.sort()
 
-    # 1. Check for exact news match
     if bar_ts in processed_news_events:
         return 0
 
-    # 2. Check for current maintenance period
-    # Calculate effective maintenance window for current bar_ts
     maint_start_dt_effective = bar_ts.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
     maint_end_dt_effective = bar_ts.replace(hour=maintenance_end, minute=0, second=0, microsecond=0)
 
-    if maint_end_dt_effective <= maint_start_dt_effective: # Maintenance spans midnight
-        # If bar_ts is on the "start" day but after maint_start, or on the "end" day but before maint_end
+    if maint_end_dt_effective <= maint_start_dt_effective: 
         if bar_ts >= maint_start_dt_effective or bar_ts < maint_end_dt_effective:
-                # To correctly check, if bar_ts is after midnight but before maint_end, maint_start should be from previous day
-            if bar_ts < maint_end_dt_effective and bar_ts.hour < maintenance_start : # e.g. bar_ts 00:30, maint 22-01
+            if bar_ts < maint_end_dt_effective and bar_ts.hour < maintenance_start : 
                 if (maint_start_dt_effective - timedelta(days=1)) <= bar_ts < maint_end_dt_effective:
                     return 0
-            elif maint_start_dt_effective <= bar_ts : # e.g bar_ts 23:00, maint 22-01
+            elif maint_start_dt_effective <= bar_ts : 
                 return 0
 
-    elif maint_start_dt_effective <= bar_ts < maint_end_dt_effective: # Maintenance does not span midnight
+    elif maint_start_dt_effective <= bar_ts < maint_end_dt_effective: 
         return 0
 
 
-    # 3. Calculate news-based distance
     closest_past_news_ts = None
     min_diff_past = timedelta.max
     for ne in processed_news_events:
@@ -137,14 +129,13 @@ def calc_until_invalid(
             news_based_distance_minutes = minutes_from_past
         elif minutes_to_future < minutes_from_past:
             news_based_distance_minutes = minutes_to_future
-        else: # Equidistant
+        else: 
             news_based_distance_minutes = 30 
     elif minutes_from_past != float('inf'):
         news_based_distance_minutes = minutes_from_past
     elif minutes_to_future != float('inf'):
         news_based_distance_minutes = minutes_to_future
 
-    # 4. Calculate minutes to next maintenance start
     maint_today_starts = bar_ts.replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
     maint_tomorrow_starts = (bar_ts + timedelta(days=1)).replace(hour=maintenance_start, minute=0, second=0, microsecond=0)
 
@@ -156,7 +147,7 @@ def calc_until_invalid(
     
     minutes_to_next_maint = int((actual_next_maint_start_ts - bar_ts).total_seconds() // 60)
 
-    # 5. Final until_invalid value
+
     if news_based_distance_minutes == float('inf'): 
         final_until_invalid = minutes_to_next_maint
     else:
@@ -592,7 +583,7 @@ class ApiRequestHandler(BaseHTTPRequestHandler):
                     old_hwid_for_this_account = None
                     current_allowed_devices_copy = dict(ApiRequestHandler.pipeline_trader.allowed_devices)
                     for hw_iter, acc_iter in current_allowed_devices_copy.items():
-                        if acc_iter == account_id: # Found the account
+                        if acc_iter == account_id: 
                             if hw_iter != new_hwid: 
                                 old_hwid_for_this_account = hw_iter
                             break 
@@ -630,18 +621,18 @@ class ApiRequestHandler(BaseHTTPRequestHandler):
                         with ApiRequestHandler.pipeline_trader.socket_server.connections_lock:
                             current_connections_snapshot = list(ApiRequestHandler.pipeline_trader.socket_server.connections)
                             for conn_details in current_connections_snapshot:
-                                if conn_details[2] == target_hwid_for_account and conn_details[3]: # Check HWID and auth status
+                                if conn_details[2] == target_hwid_for_account and conn_details[3]:
                                     device_is_active = True
                                     break
                     
                     if device_is_active:
                         msg_to_dll = f"EDIT|{target_hwid_for_account}|{max_risk_str}|{untradable_period_str}"
                         logger.info(f"API: Sending {command.upper()} command to active client with HWID '{target_hwid_for_account}' (AccountID '{account_id_from_api}'): {msg_to_dll}")
-                        ApiRequestHandler.pipeline_trader.send_signal(msg_to_dll) # send_signal broadcasts
+                        ApiRequestHandler.pipeline_trader.send_signal(msg_to_dll)
                         self.send_json_response(200, {"status": "ok", "message": f"{command.upper()} command sent to active client for HWID '{target_hwid_for_account}'."})
                     else:
                         logger.info(f"API EDIT: HWID '{target_hwid_for_account}' for AccountID '{account_id_from_api}' is registered but not actively connected/authenticated. Command not sent.")
-                        self.send_json_response(409, { # 409 Conflict: resource exists but state prevents action
+                        self.send_json_response(409, { 
                             "error": f"Device for AccountID '{account_id_from_api}' (HWID: {target_hwid_for_account}) is registered but not currently active. EDIT command not sent."
                         })
 
