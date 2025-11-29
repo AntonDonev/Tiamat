@@ -235,7 +235,6 @@ cd TiamatOnline
 python livepipeline.py
 ```
 
-За подробни инструкции вижте `TiamatOffline/README.txt` и `TiamatOnline/README.txt`.
 
 ---
 
