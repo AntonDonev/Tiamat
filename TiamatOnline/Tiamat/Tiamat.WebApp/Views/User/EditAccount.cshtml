@@ -1,0 +1,62 @@
+﻿@using Tiamat.Models
+@model Tiamat.Models.Account
+
+@{
+    ViewData["Title"] = "Редактиране на акаунт";
+}
+<style>
+    #particles-js {
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: -1 !important;
+    }
+</style>
+<link rel="stylesheet" href="~/css/addAccountStyle.css" />
+
+
+<div id="particles-js"></div>
+
+<div asp-validation-summary="All" class="text-danger"></div>
+
+<div class="add-account-container">
+    <h1 class="title">Редактиране на акаунт</h1>
+    <div class="add-account-card">
+
+        <form asp-action="EditAccount" asp-controller="User" method="post">
+            <input type="hidden" asp-for="Id" />
+
+            <div class="form-group">
+                <label asp-for="AccountName"></label>
+                <input asp-for="AccountName" class="form-control" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="AccountSettingsId">Настройка на акаунт</label>
+                <select asp-for="AccountSettingsId" class="form-control">
+                    <option value="">Избери</option>
+                    @foreach (var setting in (ViewBag.AccountSettings as List<AccountSetting> ?? new List<AccountSetting>()))
+                    {
+                        <option value="@setting.AccountSettingId"
+                                selected="@(Model.AccountSettingsId == setting.AccountSettingId ? "selected" : null)">
+                            @setting.SettingName
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <button type="submit" class="submit-btn">Запази промените</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="~/js/particles-init.js"></script>
+
+    @Html.Partial("_IziToastPartial")
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
